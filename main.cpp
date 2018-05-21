@@ -2,6 +2,7 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 #include <math.h>
+#include <vector>
 #include "SFMLOrthogonalLayer.hpp"
 #include <tmxlite/Map.hpp>
 
@@ -81,7 +82,7 @@ int main()
 	settings.antialiasingLevel = 8;
 
 	sf::RenderWindow window(sf::VideoMode(800, 600), "SFML shapes", sf::Style::Default, settings);
-
+	sf::View view(sf::FloatRect(0,0,800,600));
 
 	bool keys[4] = {0,1,2,3};
     // run the program as long as the window is open
@@ -98,11 +99,21 @@ int main()
     // sword.setFillColor(sf::Color(255,0,0));
 
 	tmx::Map map;
-    map.load("new/untitled.tmx");
+    map.load("tiled/zombiegame.tmx");
 
-    MapLayer layerZero(map, 0);
-	MapLayer layerOne(map, 1);
-	MapLayer layerTwo(map, 2);
+    std::size_t n = map.getLayers().size();
+    std::vector<MapLayer*> layers;
+    for(int i=0;i<n;i++){
+    	// MapLayer l(map,i);
+    	layers.push_back(new MapLayer(map,i));
+    }
+
+ //    MapLayer layerZero(map, 0);
+	// MapLayer layerOne(map, 1);
+	// MapLayer layerTwo(map, 2);
+	// MapLayer layer3(map, 3);
+	// MapLayer layer4(map, 4);
+	// MapLayer layer5(map, 5);
 
     while (window.isOpen())
     {
@@ -172,16 +183,28 @@ int main()
 
 
         }
-        p.move(normalize(movement,5));
+        p.move(normalize(movement,600*time.asSeconds()));
 
 			sf::Vector2f del = p.getPosition() - z.getPosition();
 			z.move(normalize(del));
 			z.turnto(del);
 
+		view = sf::View(p.getPosition(),sf::Vector2f(800,600));
+		view.zoom(1);
+		window.setView(view);
+
 	    window.clear(sf::Color());
-        window.draw(layerZero);
-        window.draw(layerOne);
-		window.draw(layerTwo);
+
+	    for( int i=0;i<n;i++){
+	    	window.draw(*(layers[i]));
+	    }
+
+  //       window.draw(layerZero);
+  //       window.draw(layerOne);
+		// window.draw(layerTwo);
+		// window.draw(layer3);
+		// window.draw(layer4);
+		// window.draw(layer5);
 	    window.draw(p);
 	    window.draw(z);
 	    // if(draw_sword)
