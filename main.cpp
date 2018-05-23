@@ -37,19 +37,15 @@ class Bullet:public sf::CircleShape{
 public:
 	sf::Vector2f direction;
 	Bullet(sf::Vector2f p,sf::Vector2f d):sf::CircleShape(5){
-		direction = normalize(d,100);
+		direction = normalize(d,10);
 		setPosition(p);
 		// std::cout << "Bkwas" << std::endl;
 	}
 
 	void moveForward(){
 		move(direction);
-		// if
 	}
 
-	bool isCollidingWith(sf::Vector2f target){
-		if (position - target)
-	}
 };
 
 std::vector<Bullet*> bullets;
@@ -236,7 +232,7 @@ int main()
 
 
         }
-        p.move(normalize(movement,5000*time.asSeconds()));
+        p.move(normalize(movement,500*time.asSeconds()));
   //       sf::Vector2f z_pos = z.getPosition();
   //       sf::FloatRect prect(z_pos.x-20,z_pos.y-20,z_pos.x+40,z_pos.y+20);
         for(int i=0;i<bullets.size();i++){
@@ -280,7 +276,7 @@ int main()
 	    // if(draw_sword)
 	    // 	window.draw(sword);
 
-	    clock.restart();
+-	    clock.restart();
 	    window.display();
     }
 
