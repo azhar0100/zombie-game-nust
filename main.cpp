@@ -19,6 +19,10 @@ bool is_perpendicular(const sf::Vector2f& a,const sf::Vector2f& b){
 	return a.x*b.x + a.y*b.y == 0;
 }
 
+bool is_parallel(const sf::Vector2f& a,const sf::Vector2f& b){
+	return a.x/b.x == a.y/b.y;
+}
+
 sf::Vector2f normalize(const sf::Vector2f& source,double magnitude=1)
 {
     float length = sqrt((source.x * source.x) + (source.y * source.y));
@@ -40,7 +44,11 @@ public:
 
 	void moveForward(){
 		move(direction);
-		if
+		// if
+	}
+
+	bool isCollidingWith(sf::Vector2f target){
+		if (position - target)
 	}
 };
 
@@ -229,13 +237,13 @@ int main()
 
         }
         p.move(normalize(movement,5000*time.asSeconds()));
-        sf::Vector2f z_pos = z.getPosition();
-        sf::FloatRect prect(z_pos.x-20,z_pos.y-20,z_pos.x+40,z_pos.y+20);
+  //       sf::Vector2f z_pos = z.getPosition();
+  //       sf::FloatRect prect(z_pos.x-20,z_pos.y-20,z_pos.x+40,z_pos.y+20);
         for(int i=0;i<bullets.size();i++){
 			bullets[i]->moveForward();
-			if((*bullets[i]).getGlobalBounds().intersects(prect)){
-				std::cout << "Zombie was hit" << std::endl;
-			};
+			// if((*bullets[i]).getGlobalBounds().intersects(prect)){
+				// std::cout << "Zombie was hit" << std::endl;
+			// };
 		}
 
 		for(int i = 0 ; i<zombies.size();i++){			
@@ -266,7 +274,9 @@ int main()
 			window.draw(*(bullets[i]));
 		}
 	    window.draw(p);
-	    window.draw(z);
+	    for(int i = 0 ; i<zombies.size();i++){
+	    	window.draw(*zombies[i]);
+		}
 	    // if(draw_sword)
 	    // 	window.draw(sword);
 
