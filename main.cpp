@@ -23,6 +23,10 @@ bool is_parallel(const sf::Vector2f& a,const sf::Vector2f& b){
 	return a.x/b.x == a.y/b.y;
 }
 
+double magnitude(const sf::Vector2f& source){
+	return sqrt((source.x * source.x) + (source.y * source.y));	
+}
+
 sf::Vector2f normalize(const sf::Vector2f& source,double magnitude=1)
 {
     float length = sqrt((source.x * source.x) + (source.y * source.y));
@@ -53,7 +57,6 @@ std::vector<Bullet*> bullets;
 class Player: public sf::Drawable, public sf::Transformable{
 public:
 	sf::CircleShape body;
-	// sf::Triangle
 	sf::ConvexShape face;
 	sf::Vector2f direction;
 
@@ -101,39 +104,82 @@ private:
         target.draw(face, states);
     }
 
-
-
 };
 
-std::vector<Player*> zombies;
+class Zombie:public sf::Sprite{
+public:
+	static std::array<sf::Texture,17> zombie_textures;
+	sf::Vector2f direction;
+	int k = 0;
+	bool random_chosen = false;
+
+	Zombie(){
+		direction = sf::Vector2f(10.f,0);
+		setOrigin(86,129);
+		setScale(1.0/4,1.0/4);
+	}
+
+	void turnto(sf::Vector2f d){
+		direction = d;
+		setRotation( std::atan2(d.y,d.x) * (180.0/3.141592653589793238463) );
+	}
+
+	void update(){
+		k = (k+1) % 17;
+		setTexture(zombie_textures[k]);
+	}
+};
+
+std::array<sf::Texture,17> Zombie::zombie_textures;
+
+std::vector<Zombie*> zombies;
 
 
 int main()
 {
+	bool random_chosen=false;
+	srand(time(NULL));
 	sf::ContextSettings settings;
 	settings.antialiasingLevel = 8;
 
 	sf::RenderWindow window(sf::VideoMode(800, 600), "SFML shapes", sf::Style::Default, settings);
 	sf::View view(sf::FloatRect(0,0,800,600));
 
-	bool keys[4] = {0,1,2,3};
     // run the program as long as the window is open
     window.setFramerateLimit(60);
+    sf::Clock globalClock;
 	sf::Clock clock;
     sf::Time time;
+    sf::Time timeElapsed;
 
     // sf::Vector2f movement;
     // sf::CircleShape player();
     // bool draw_sword = false;
     Player p;
-    for(int i=0;i<4;i++){
-    	Player *z = new Player();
-    	z->setPosition(rand() % 4096,rand() % 4096);
+
+    for(int i=0;i<=16;i++){
+		std::cout << "export/skeleton-move_" + std::to_string(i) + ".png"<<std::endl;
+		if(!Zombie::zombie_textures[i].loadFromFile("export/skeleton-move_" + std::to_string(i) + ".png")){
+			std::cout << "Failed at " << i << std::endl;
+		}
+    }
+
+    // sf::Sprite zombie;
+    // zombie.setTexture(zombie_textures[0]);
+    // zombie.setOrigin(86,129);
+    // zombie.setScale(1.0/4,1.0/4);
+
+    std::vector<Zombie*> zombies;
+
+    for(int i=0;i<16;i++){
+    	Zombie *z = new Zombie();
+    	z->setPosition(rand() % 512,rand() % 512);
     	zombies.push_back(z);
     }
     // sf::RectangleShape sword(sf::Vector2f({40,5}));
     // sword.setFillColor(sf::Color(255,0,0));
 
+    int k=0;
 	tmx::Map map;
     map.load("tiled/zombiegame1.tmx");
 
@@ -144,18 +190,19 @@ int main()
     	layers.push_back(new MapLayer(map,i));
     }
 
- //    MapLayer layerZero(map, 0);
+	// MapLayer layerZero(map, 0);
 	// MapLayer layerOne(map, 1);
 	// MapLayer layerTwo(map, 2);
 	// MapLayer layer3(map, 3);
 	// MapLayer layer4(map, 4);
-	// MapLayer layer5(map, 5);
+	// MapLayer layer5(map, 5setOrigin
 
     while (window.isOpen())
     {	
         // check all the window's events that were triggered since the last iteration of the loop
         sf::Event event;
         time = clock.getElapsedTime();
+        timeElapsed = globalClock.getElapsedTime();
         // std::cout << 1.0f/time.asSeconds() << std::endl;
 
         sf::Vector2f movement;
@@ -174,7 +221,7 @@ int main()
 			    if (is_perpendicular(movement,input)){
 			    	movement += input;
 			    }
-			    p.turnto(sf::Vector2f({5,0}));
+			    p.turnto(sf::Vector2f(5,0));
 			}
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
 			{
@@ -183,7 +230,7 @@ int main()
 			    if (is_perpendicular(movement,input)){
 			    	movement += input;
 			    }
-			    p.turnto(sf::Vector2f({-5,0}));
+			    p.turnto(sf::Vector2f(-5,0));
 			}
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))
 			{
@@ -192,7 +239,7 @@ int main()
 			    if (is_perpendicular(movement,input)){
 			    	movement += input;
 			    }
-				p.turnto(sf::Vector2f({0,5}));
+				p.turnto(sf::Vector2f(0,5));
 			}
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))
 			{
@@ -201,7 +248,7 @@ int main()
 				if (is_perpendicular(movement,input)){
 			    	movement += input;
 			    }
-			    p.turnto(sf::Vector2f({0,-5}));
+			    p.turnto(sf::Vector2f(0,-5));
 			}
 
 			if (event.type == sf::Event::TextEntered)
@@ -211,28 +258,8 @@ int main()
 					std::cout << "ASCII character typed: " << static_cast<char>(event.text.unicode) << std::endl;
 			}
 
-			// if (sf::Keyboard::isKeyPressed(sf::Keyboard::X))
-			// {
-			//     // left key is pressed: move our character
-			// 	p.shoot();
-			// }
-
-			// if (sf::Keyboard::isKeyPressed(sf::Keyboard::X))
-			// {
-			//     // left key is pressed: move our character
-
-			//     sf::Vector2f pos = player.getPosition();
-			//     pos += {40,10};
-			//     sword.setPosition(pos);
-			//     draw_sword = true;
-
-			// }else{
-			// 	draw_sword = false;
-			// }
-
-
-        }
-        p.move(normalize(movement,500*time.asSeconds()));
+	    }
+        p.move(normalize(movement,2000*time.asSeconds()));
   //       sf::Vector2f z_pos = z.getPosition();
   //       sf::FloatRect prect(z_pos.x-20,z_pos.y-20,z_pos.x+40,z_pos.y+20);
         for(int i=0;i<bullets.size();i++){
@@ -243,10 +270,27 @@ int main()
 		}
 
 		for(int i = 0 ; i<zombies.size();i++){			
-			Player *z = zombies[i];
+			Zombie *z = zombies[i];
+
 			sf::Vector2f del = p.getPosition() - z->getPosition();
-			z->move(normalize(del));
-			z->turnto(del);
+			if(magnitude(del) <= 200 ){
+				z->move(normalize(del));
+				z->turnto(del);
+				z->random_chosen = false;
+			}
+			else if(z->random_chosen){
+				z->move(normalize(z->direction));
+			}
+			else{				
+				z->turnto(sf::Vector2f(rand() % 4 - 2,rand() % 4 - 2));
+				z->random_chosen = true;
+			}
+		}
+
+		if( timeElapsed.asSeconds() > 0.2f ){
+			for(int i = 0 ; i<zombies.size();i++)
+				zombies[i]->update();
+			globalClock.restart();
 		}
 
 		view = sf::View(p.getPosition(),sf::Vector2f(800,600));
@@ -259,13 +303,6 @@ int main()
 		    // std::cout << "Got here too";
 	    	window.draw(*(layers[i]));
 	    }
-
-		// window.draw(layerZero);
-		// window.draw(layerOne);
-		// window.draw(layerTwo);
-		// window.draw(layer3);
-		// window.draw(layer4);
-		// window.draw(layer5);
 		for(int i=0;i<bullets.size();i++){
 			window.draw(*(bullets[i]));
 		}
@@ -273,10 +310,11 @@ int main()
 	    for(int i = 0 ; i<zombies.size();i++){
 	    	window.draw(*zombies[i]);
 		}
+		// window.draw(z);
 	    // if(draw_sword)
 	    // 	window.draw(sword);
 
--	    clock.restart();
+	    clock.restart();
 	    window.display();
     }
 
