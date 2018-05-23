@@ -12,6 +12,9 @@
 // double approximate_to_quadrantal(double angle){
 // 	return *std::min_element({90-angle,180-angle,270-angle,360-angle});
 // }
+
+
+
 bool is_perpendicular(const sf::Vector2f& a,const sf::Vector2f& b){
 	return a.x*b.x + a.y*b.y == 0;
 }
@@ -24,6 +27,24 @@ sf::Vector2f normalize(const sf::Vector2f& source,double magnitude=1)
     else
         return source;
 }
+class Bullet:public sf::CircleShape{
+
+
+public:
+	sf::Vector2f direction;
+	Bullet(sf::Vector2f p,sf::Vector2f d):sf::CircleShape(5){
+		direction = normalize(d,100);
+		setPosition(p);
+		// std::cout << "Bkwas" << std::endl;
+	}
+
+	void moveForward(){
+		move(direction);
+		if
+	}
+};
+
+std::vector<Bullet*> bullets;
 
 class Player: public sf::Drawable, public sf::Transformable{
 public:
@@ -31,6 +52,8 @@ public:
 	// sf::Triangle
 	sf::ConvexShape face;
 	sf::Vector2f direction;
+
+	int ammo = 10;
 
 	Player(){
 
@@ -53,6 +76,9 @@ public:
 		// this->setRotation(90);
 	}
 
+    void shoot(){
+    	bullets.push_back(new Bullet(getPosition() + normalize(direction,40),direction));
+    }
 
 private:
 
@@ -73,8 +99,10 @@ private:
 
 
 
-
 };
+
+std::vector<Player*> zombies;
+
 
 int main()
 {
@@ -94,12 +122,16 @@ int main()
     // sf::CircleShape player();
     // bool draw_sword = false;
     Player p;
-    Player z;
+    for(int i=0;i<4;i++){
+    	Player *z = new Player();
+    	z->setPosition(rand() % 4096,rand() % 4096);
+    	zombies.push_back(z);
+    }
     // sf::RectangleShape sword(sf::Vector2f({40,5}));
     // sword.setFillColor(sf::Color(255,0,0));
 
 	tmx::Map map;
-    map.load("tiled/zombiegame.tmx");
+    map.load("tiled/zombiegame1.tmx");
 
     std::size_t n = map.getLayers().size();
     std::vector<MapLayer*> layers;
@@ -116,11 +148,11 @@ int main()
 	// MapLayer layer5(map, 5);
 
     while (window.isOpen())
-    {
+    {	
         // check all the window's events that were triggered since the last iteration of the loop
         sf::Event event;
         time = clock.getElapsedTime();
-        std::cout << 1.0f/time.asSeconds() << std::endl;
+        // std::cout << 1.0f/time.asSeconds() << std::endl;
 
         sf::Vector2f movement;
         sf::Vector2f input;
@@ -168,6 +200,19 @@ int main()
 			    p.turnto(sf::Vector2f({0,-5}));
 			}
 
+			if (event.type == sf::Event::TextEntered)
+			{
+				if (event.text.unicode ==  'x')
+					p.shoot();
+					std::cout << "ASCII character typed: " << static_cast<char>(event.text.unicode) << std::endl;
+			}
+
+			// if (sf::Keyboard::isKeyPressed(sf::Keyboard::X))
+			// {
+			//     // left key is pressed: move our character
+			// 	p.shoot();
+			// }
+
 			// if (sf::Keyboard::isKeyPressed(sf::Keyboard::X))
 			// {
 			//     // left key is pressed: move our character
@@ -183,28 +228,43 @@ int main()
 
 
         }
-        p.move(normalize(movement,600*time.asSeconds()));
+        p.move(normalize(movement,5000*time.asSeconds()));
+        sf::Vector2f z_pos = z.getPosition();
+        sf::FloatRect prect(z_pos.x-20,z_pos.y-20,z_pos.x+40,z_pos.y+20);
+        for(int i=0;i<bullets.size();i++){
+			bullets[i]->moveForward();
+			if((*bullets[i]).getGlobalBounds().intersects(prect)){
+				std::cout << "Zombie was hit" << std::endl;
+			};
+		}
 
-			sf::Vector2f del = p.getPosition() - z.getPosition();
-			z.move(normalize(del));
-			z.turnto(del);
+		for(int i = 0 ; i<zombies.size();i++){			
+			Player *z = zombies[i];
+			sf::Vector2f del = p.getPosition() - z->getPosition();
+			z->move(normalize(del));
+			z->turnto(del);
+		}
 
 		view = sf::View(p.getPosition(),sf::Vector2f(800,600));
-		view.zoom(1);
+		// view.zoom(0.8);
 		window.setView(view);
 
 	    window.clear(sf::Color());
 
 	    for( int i=0;i<n;i++){
+		    // std::cout << "Got here too";
 	    	window.draw(*(layers[i]));
 	    }
 
-  //       window.draw(layerZero);
-  //       window.draw(layerOne);
+		// window.draw(layerZero);
+		// window.draw(layerOne);
 		// window.draw(layerTwo);
 		// window.draw(layer3);
 		// window.draw(layer4);
 		// window.draw(layer5);
+		for(int i=0;i<bullets.size();i++){
+			window.draw(*(bullets[i]));
+		}
 	    window.draw(p);
 	    window.draw(z);
 	    // if(draw_sword)
