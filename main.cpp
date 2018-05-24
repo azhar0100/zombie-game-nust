@@ -40,7 +40,7 @@ class Bullet:public sf::CircleShape{
 
 public:
 	sf::Vector2f direction;
-	Bullet(sf::Vector2f p,sf::Vector2f d):sf::CircleShape(5){
+	Bullet(sf::Vector2f p,sf::Vector2f d):sf::CircleShape(2){
 		direction = normalize(d,10);
 		setPosition(p);
 		// std::cout << "Bkwas" << std::endl;
@@ -54,55 +54,59 @@ public:
 
 std::vector<Bullet*> bullets;
 
-class Player: public sf::Drawable, public sf::Transformable{
+class Player: public sf::Sprite {
 public:
-	sf::CircleShape body;
-	sf::ConvexShape face;
-	sf::Vector2f direction;
 
-	int ammo = 10;
+	static std::array<sf::Texture,20> body_textures;
+	static std::array<sf::Texture,20> feet_textures;
+	
+	sf::Sprite feet;
+
+	sf::Vector2f direction;
+	int k = 0;
+
 
 	Player(){
-
-		// resize it to 5 points
-		face.setPointCount(3);
-
-		// define the points
-		face.setPoint(0, sf::Vector2f(0, 0));
-		face.setPoint(1, sf::Vector2f(20, 20));
-		face.setPoint(2, sf::Vector2f(0, 40));
-
-		body = sf::CircleShape(20);
-		face.setPosition(getPosition() + sf::Vector2f({40,0}));
-		setOrigin(20,20);
+		feet.setTexture(feet_textures[0]);
+		setTexture(body_textures[0]);
+		setOrigin(95,120);
+		setScale(1.0/4,1.0/4);
+		feet.setOrigin(95,120);
+		feet.setScale(1.0/4,1.0/4);
 	}
 
 	void turnto(sf::Vector2f d){
 		direction = d;
 		setRotation(std::atan2(d.y,d.x) * (180.0/3.141592653589793238463));
-		// this->setRotation(90);
+		feet.setRotation(std::atan2(d.y,d.x) * (180.0/3.141592653589793238463));
 	}
 
     void shoot(){
-    	bullets.push_back(new Bullet(getPosition() + normalize(direction,40),direction));
+    	bullets.push_back(new Bullet(getTransform().transformPoint(sf::Vector2f(292,150)),direction));
     }
 
-private:
+	void update(){
+		k = (k+1) % 20;
+		setTexture(body_textures[k]);
+		feet.setTexture(feet_textures[k]);
+	}
 
-    virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const
-    {
-        // apply the entity's transform -- combine it with the one that was passed by the caller
-        states.transform *= getTransform(); // getTransform() is defined by sf::Transformable
+// private:
+//     virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const
+//     {
+//         // apply the entity's transform -- combine it with the one that was passed by the caller
+//         states.transform *= getTransform(); // getTransform() is defined by sf::Transformable
 
-        // apply the texture
-        // states.texture = &m_texture;
+//         // apply the texture
+//         // states.texture = &m_texture;
 
-        // you may also override states.shader or states.blendMode if you want
+//         // you may also override states.shader or states.blendMode if you want
 
-        // draw the vertex array
-        target.draw(body, states);
-        target.draw(face, states);
-    }
+//         // draw the vertex array
+//         // target.draw(this,states);
+//         target.draw(feet, states);
+//     }
+
 
 };
 
@@ -112,6 +116,7 @@ public:
 	sf::Vector2f direction;
 	int k = 0;
 	bool random_chosen = false;
+	int health = 100;
 
 	Zombie(){
 		direction = sf::Vector2f(10.f,0);
@@ -127,10 +132,16 @@ public:
 	void update(){
 		k = (k+1) % 17;
 		setTexture(zombie_textures[k]);
+		if(health < 0 ){
+			setPosition (0,0);
+			health = 0;
+		}
 	}
 };
 
 std::array<sf::Texture,17> Zombie::zombie_textures;
+std::array<sf::Texture,20> Player::body_textures;
+std::array<sf::Texture,20> Player::feet_textures;
 
 std::vector<Zombie*> zombies;
 
@@ -155,7 +166,22 @@ int main()
     // sf::Vector2f movement;
     // sf::CircleShape player();
     // bool draw_sword = false;
-    Player p;
+
+    // "Top_Down_Survivor/feet/run/survivor-run_0.png";
+
+    for(int i=0;i<=20;i++){
+    // "Top_Down_Survivor/rifle/move/survivor-move_rifle_0.png";
+    	if(!Player::body_textures[i].loadFromFile("Top_Down_Survivor/rifle/move/survivor-move_rifle_" + std::to_string(i) + ".png")){
+			std::cout << "Failed at " << i << std::endl;
+		}
+	}
+
+    for(int i=0;i<=20;i++){
+    // "Top_Down_Survivor/rifle/move/survivor-move_rifle_0.png";
+    	if(!Player::feet_textures[i].loadFromFile("Top_Down_Survivor/feet/run/survivor-run_" + std::to_string(i) + ".png")){
+			std::cout << "Failed at " << i << std::endl;
+		}
+	}
 
     for(int i=0;i<=16;i++){
 		std::cout << "export/skeleton-move_" + std::to_string(i) + ".png"<<std::endl;
@@ -164,6 +190,7 @@ int main()
 		}
     }
 
+    Player p;
     // sf::Sprite zombie;
     // zombie.setTexture(zombie_textures[0]);
     // zombie.setOrigin(86,129);
@@ -264,16 +291,21 @@ int main()
   //       sf::FloatRect prect(z_pos.x-20,z_pos.y-20,z_pos.x+40,z_pos.y+20);
         for(int i=0;i<bullets.size();i++){
 			bullets[i]->moveForward();
-			// if((*bullets[i]).getGlobalBounds().intersects(prect)){
-				// std::cout << "Zombie was hit" << std::endl;
-			// };
+			for(int j=0;j<zombies.size();j++){
+				if((*bullets[i]).getGlobalBounds().intersects(zombies[j]->getGlobalBounds())){
+					zombies[j]->health -= 25;
+					bullets[i]->direction = sf::Vector2f(0,0);
+					bullets[i]->setPosition( sf::Vector2f(-100,-100) );
+					std::cout << "Zombie was hit" << std::endl;
+				}
+			}
 		}
 
 		for(int i = 0 ; i<zombies.size();i++){			
 			Zombie *z = zombies[i];
 
 			sf::Vector2f del = p.getPosition() - z->getPosition();
-			if(magnitude(del) <= 200 ){
+			if( magnitude(del) <= 500 ){
 				z->move(normalize(del));
 				z->turnto(del);
 				z->random_chosen = false;
@@ -290,6 +322,7 @@ int main()
 		if( timeElapsed.asSeconds() > 0.2f ){
 			for(int i = 0 ; i<zombies.size();i++)
 				zombies[i]->update();
+			p.update();
 			globalClock.restart();
 		}
 
