@@ -58,15 +58,15 @@ class AnimatedSprite: public sf::Sprite{
 public:
 
 	std::vector<sf::Texture*> textures;
-	std::size_t current_texture;
+	std::size_t current_texture = 0;
 
 	AnimatedSprite(std::vector<sf::Texture*> t): textures(t){
-		setTexture(textures[0]);
+		if (textures.size() > 0) {setTexture(*textures[0]);}
 	}
 
 	void update(){
-		k = (k+1) % textures.size();
-		setTexture(zombie_textures[k]);
+		current_texture = (current_texture+1) % textures.size();
+		setTexture(*textures[current_texture]);
 	}
 }
 
@@ -126,11 +126,10 @@ public:
 
 };
 
-class Zombie:public sf::Sprite{
+class Zombie:public AnimatedSprite{
 public:
-	static std::array<sf::Texture,17> zombie_textures;
+	static std::vector<sf::Texture*> textures;
 	sf::Vector2f direction;
-	int k = 0;
 	bool random_chosen = false;
 	int health = 100;
 
@@ -144,15 +143,6 @@ public:
 		direction = d;
 		setRotation( std::atan2(d.y,d.x) * (180.0/3.141592653589793238463) );
 	}
-
-	void update(){
-		k = (k+1) % 17;
-		setTexture(zombie_textures[k]);
-		if(health < 0 ){
-			setPosition (0,0);
-			health = 100;
-		}
-	}
 };
 
 bool is_background_layer(int n){
@@ -164,9 +154,9 @@ bool is_background_layer(int n){
 	}
 	return false;
 }
-std::array<sf::Texture,17> Zombie::zombie_textures;
-std::array<sf::Texture,20> Player::body_textures;
-std::array<sf::Texture,20> Player::feet_textures;
+std::vector<sf::Texture*> Zombie::zombie_textures(17);
+std::vector<sf::Texture*> Player::body_textures(20);
+std::vector<sf::Texture*> Player::feet_textures(20);
 
 std::vector<Zombie*> zombies;
 
@@ -196,21 +186,26 @@ int main()
 
     for(int i=0;i<=20;i++){
     // "Top_Down_Survivor/rifle/move/survivor-move_rifle_0.png";
-    	if(!Player::body_textures[i].loadFromFile("Top_Down_Survivor/rifle/move/survivor-move_rifle_" + std::to_string(i) + ".png")){
+    	sf::Texture* t = new sf::Texture;
+    	body_textures.push_back(t);
+    	if(!Player::body_textures[i]->loadFromFile("Top_Down_Survivor/rifle/move/survivor-move_rifle_" + std::to_string(i) + ".png")){
 			std::cout << "Failed at " << i << std::endl;
 		}
 	}
 
     for(int i=0;i<=20;i++){
     // "Top_Down_Survivor/rifle/move/survivor-move_rifle_0.png";
-    	if(!Player::feet_textures[i].loadFromFile("Top_Down_Survivor/feet/run/survivor-run_" + std::to_string(i) + ".png")){
+    	sf::Texture* t = new sf::Texture;
+    	body_textures.push_back(t);
+    	if(!Player::feet_textures[i]->loadFromFile("Top_Down_Survivor/feet/run/survivor-run_" + std::to_string(i) + ".png")){
 			std::cout << "Failed at " << i << std::endl;
 		}
 	}
 
     for(int i=0;i<=16;i++){
-		std::cout << "export/skeleton-move_" + std::to_string(i) + ".png"<<std::endl;
-		if(!Zombie::zombie_textures[i].loadFromFile("export/skeleton-move_" + std::to_string(i) + ".png")){
+	   	sf::Texture* t = new sf::Texture;
+    	body_textures.push_back(t);
+    	if(!Zombie::zombie_textures[i]->loadFromFile("export/skeleton-move_" + std::to_string(i) + ".png")){
 			std::cout << "Failed at " << i << std::endl;
 		}
     }
