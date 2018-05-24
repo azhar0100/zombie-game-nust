@@ -54,6 +54,22 @@ public:
 
 std::vector<Bullet*> bullets;
 
+class AnimatedSprite: public sf::Sprite{
+public:
+
+	std::vector<sf::Texture*> textures;
+	std::size_t current_texture;
+
+	AnimatedSprite(std::vector<sf::Texture*> t): textures(t){
+		setTexture(textures[0]);
+	}
+
+	void update(){
+		k = (k+1) % textures.size();
+		setTexture(zombie_textures[k]);
+	}
+}
+
 class Player: public sf::Sprite {
 public:
 
@@ -134,7 +150,7 @@ public:
 		setTexture(zombie_textures[k]);
 		if(health < 0 ){
 			setPosition (0,0);
-			health = 0;
+			health = 100;
 		}
 	}
 };
@@ -162,7 +178,7 @@ int main()
 	sf::ContextSettings settings;
 	settings.antialiasingLevel = 8;
 
-	sf::RenderWindow window(sf::VideoMode(800, 600), "SFML shapes", sf::Style::Default, settings);
+	sf::RenderWindow window(sf::VideoMode(800, 600), "Zombie", sf::Style::Default, settings);
 	sf::View view(sf::FloatRect(0,0,800,600));
 
     // run the program as long as the window is open
@@ -236,6 +252,7 @@ int main()
 
         sf::Vector2f movement;
         sf::Vector2f input;
+        sf::Vector2f direction;
         while (window.pollEvent(event))
         {
 
@@ -250,7 +267,7 @@ int main()
 			    if (!is_parallel(movement,input)){
 			    	movement += input;
 			    }
-			    p.turnto(sf::Vector2f(5,0));
+			    // p.turnto(sf::Vector2f(5,0));
 			}
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
 			{
@@ -259,7 +276,7 @@ int main()
 			    if (!is_parallel(movement,input)){
 			    	movement += input;
 			    }
-			    p.turnto(sf::Vector2f(-5,0));
+			    // p.turnto(sf::Vector2f(-5,0));
 			}
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))
 			{
@@ -268,7 +285,7 @@ int main()
 			    if (!is_parallel(movement,input)){
 			    	movement += input;
 			    }
-				p.turnto(sf::Vector2f(0,5));
+				// p.turnto(sf::Vector2f(0,5));
 			}
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))
 			{
@@ -277,8 +294,19 @@ int main()
 				if (!is_parallel(movement,input)){
 			    	movement += input;
 			    }
-			    p.turnto(sf::Vector2f(0,-5));
+			    // p.turnto(sf::Vector2f(0,-5));
 			}
+			
+
+ 				
+		 //        if(btn_quit.IsIn(event.MouseMoveEvent.x, event.MouseMoveEvent.x){
+		 //            btn_quit.RenderImg(window,"button_on.png");
+		 //        } else {
+		 //            btn_quit.RenderImg(window,"button.png");
+		 //        }
+			// }
+   //      	}	
+
 
 			if (event.type == sf::Event::TextEntered)
 			{
@@ -289,7 +317,8 @@ int main()
 
 	    }
         p.move(normalize(movement,2000*time.asSeconds()));
-        // p.turnto(movement);
+        sf::Vector2i mousePos = sf::Mouse::getPosition(window) ;
+        p.turnto( sf::Vector2f(mousePos.x,mousePos.y) - sf::Vector2f(400,300));
   //       sf::Vector2f z_pos = z.getPosition();
   //       sf::FloatRect prect(z_pos.x-20,z_pos.y-20,z_pos.x+40,z_pos.y+20);
         for(int i=0;i<bullets.size();i++){
