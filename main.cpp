@@ -35,6 +35,11 @@ sf::Vector2f normalize(const sf::Vector2f& source,double magnitude=1)
     else
         return source;
 }
+
+class Updatable{
+       virtual void update() = 0;
+};
+
 class Bullet:public sf::CircleShape{
 
 
@@ -61,79 +66,82 @@ public:
 	std::size_t current_texture = 0;
 
 	AnimatedSprite(std::vector<sf::Texture*> t): textures(t){
-		if (textures.size() > 0) {setTexture(*textures[0]);}
+		if (textures.size() > 0) {
+			setTexture((*textures[0]));
+		}
 	}
 
 	void update(){
 		current_texture = (current_texture+1) % textures.size();
-		setTexture(*textures[current_texture]);
+		setTexture(*(textures[current_texture]));
 	}
-}
+};
 
-class Player: public sf::Sprite {
-public:
+class Player: public sf::Drawable, public sf::Transformable,public Updatable {
+ public:
+ 
+       static std::vector<sf::Texture*> body_textures;
+       static std::vector<sf::Texture*> feet_textures;
+        
+       AnimatedSprite* body;
+       AnimatedSprite* feet;
+       sf::Vector2f direction;
 
-	static std::array<sf::Texture,20> body_textures;
-	static std::array<sf::Texture,20> feet_textures;
-	
-	sf::Sprite feet;
-
-	sf::Vector2f direction;
-	int k = 0;
 
 
 	Player(){
-		feet.setTexture(feet_textures[0]);
-		setTexture(body_textures[0]);
+		direction = sf::Vector2f(1,0);
+		body = new AnimatedSprite(body_textures);
+		feet = new AnimatedSprite(feet_textures);
 		setOrigin(95,120);
 		setScale(1.0/4,1.0/4);
-		feet.setOrigin(95,120);
-		feet.setScale(1.0/4,1.0/4);
 	}
 
 	void turnto(sf::Vector2f d){
 		direction = d;
+		// body->setRotation(std::atan2(d.y,d.x) * (180.0/3.141592653589793238463));
+		// feet->setRotation(std::atan2(d.y,d.x) * (180.0/3.141592653589793238463));
 		setRotation(std::atan2(d.y,d.x) * (180.0/3.141592653589793238463));
-		feet.setRotation(std::atan2(d.y,d.x) * (180.0/3.141592653589793238463));
+
 	}
 
     void shoot(){
     	bullets.push_back(new Bullet(getTransform().transformPoint(sf::Vector2f(292,150)),direction));
-    }
+    }	
 
-	void update(){
-		k = (k+1) % 20;
-		setTexture(body_textures[k]);
-		feet.setTexture(feet_textures[k]);
+    void update(){
+		feet->update();
+		body->update();
 	}
 
-// private:
-//     virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const
-//     {
-//         // apply the entity's transform -- combine it with the one that was passed by the caller
-//         states.transform *= getTransform(); // getTransform() is defined by sf::Transformable
+private:
+    virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const
+    {
+        // apply the entity's transform -- combine it with the one that was passed by the caller
+        states.transform *= getTransform(); // getTransform() is defined by sf::Transformable
 
-//         // apply the texture
-//         // states.texture = &m_texture;
+        // apply the texture
+        // states.texture = &m_texture;
 
-//         // you may also override states.shader or states.blendMode if you want
+        // you may also override states.shader or states.blendMode if you want
 
-//         // draw the vertex array
-//         // target.draw(this,states);
-//         target.draw(feet, states);
-//     }
+        // draw the vertex array
+        // target.draw(this,states);
+        target.draw(*feet, states);
+        target.draw(*body, states);
+    }
 
 
 };
 
 class Zombie:public AnimatedSprite{
 public:
-	static std::vector<sf::Texture*> textures;
+	static std::vector<sf::Texture*> zombie_textures;
 	sf::Vector2f direction;
 	bool random_chosen = false;
 	int health = 100;
 
-	Zombie(){
+	Zombie():AnimatedSprite(zombie_textures){
 		direction = sf::Vector2f(10.f,0);
 		setOrigin(86,129);
 		setScale(1.0/4,1.0/4);
@@ -154,15 +162,16 @@ bool is_background_layer(int n){
 	}
 	return false;
 }
-std::vector<sf::Texture*> Zombie::zombie_textures(17);
-std::vector<sf::Texture*> Player::body_textures(20);
-std::vector<sf::Texture*> Player::feet_textures(20);
+std::vector<sf::Texture*> Zombie::zombie_textures;
+std::vector<sf::Texture*> Player::Player::body_textures;
+std::vector<sf::Texture*> Player::feet_textures;
 
 std::vector<Zombie*> zombies;
 
 
 int main()
 {
+    std::cout << "Got here";
 	bool random_chosen=false;
 	srand(time(NULL));
 	sf::ContextSettings settings;
@@ -184,32 +193,33 @@ int main()
 
     // "Top_Down_Survivor/feet/run/survivor-run_0.png";
 
-    for(int i=0;i<=20;i++){
+    for(int i=0;i<=19;i++){
     // "Top_Down_Survivor/rifle/move/survivor-move_rifle_0.png";
-    	sf::Texture* t = new sf::Texture;
-    	body_textures.push_back(t);
-    	if(!Player::body_textures[i]->loadFromFile("Top_Down_Survivor/rifle/move/survivor-move_rifle_" + std::to_string(i) + ".png")){
+    	sf::Texture* t = new sf::Texture();
+    	Player::body_textures.push_back(t);
+    	if(!Player::Player::body_textures[i]->loadFromFile("Top_Down_Survivor/rifle/move/survivor-move_rifle_" + std::to_string(i) + ".png")){
 			std::cout << "Failed at " << i << std::endl;
 		}
 	}
 
-    for(int i=0;i<=20;i++){
+    for(int i=0;i<=19;i++){
     // "Top_Down_Survivor/rifle/move/survivor-move_rifle_0.png";
-    	sf::Texture* t = new sf::Texture;
-    	body_textures.push_back(t);
-    	if(!Player::feet_textures[i]->loadFromFile("Top_Down_Survivor/feet/run/survivor-run_" + std::to_string(i) + ".png")){
+    	sf::Texture* t = new sf::Texture();
+    	Player::feet_textures.push_back(t);
+    	if(!Player::feet_textures.back()->loadFromFile("Top_Down_Survivor/feet/run/survivor-run_" + std::to_string(i) + ".png")){
 			std::cout << "Failed at " << i << std::endl;
 		}
 	}
 
+    std::cout << "Got here";
     for(int i=0;i<=16;i++){
-	   	sf::Texture* t = new sf::Texture;
-    	body_textures.push_back(t);
+	   	sf::Texture* t = new sf::Texture();
+    	Zombie::zombie_textures.push_back(t);
     	if(!Zombie::zombie_textures[i]->loadFromFile("export/skeleton-move_" + std::to_string(i) + ".png")){
 			std::cout << "Failed at " << i << std::endl;
 		}
     }
-
+    std::cout << "Got here";
     Player p;
     // sf::Sprite zombie;
     // zombie.setTexture(zombie_textures[0]);
@@ -311,7 +321,7 @@ int main()
 			}
 
 	    }
-        p.move(normalize(movement,2000*time.asSeconds()));
+        p.move(normalize(movement,1000*time.asSeconds()));
         sf::Vector2i mousePos = sf::Mouse::getPosition(window) ;
         p.turnto( sf::Vector2f(mousePos.x,mousePos.y) - sf::Vector2f(400,300));
   //       sf::Vector2f z_pos = z.getPosition();
@@ -346,7 +356,7 @@ int main()
 			}
 		}
 
-		if( timeElapsed.asSeconds() > 0.2f ){
+		if( timeElapsed.asSeconds() > 0.05f ){
 			for(int i = 0 ; i<zombies.size();i++)
 				zombies[i]->update();
 			p.update();
