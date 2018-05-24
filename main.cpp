@@ -139,6 +139,15 @@ public:
 	}
 };
 
+bool is_background_layer(int n){
+	int background_layers[7] = {0,1,4,14,15,16,17};
+	for(int i=0;i<7;i++){
+		if(n == i){
+			return true;
+		}
+	}
+	return false;
+}
 std::array<sf::Texture,17> Zombie::zombie_textures;
 std::array<sf::Texture,20> Player::body_textures;
 std::array<sf::Texture,20> Player::feet_textures;
@@ -217,13 +226,6 @@ int main()
     	layers.push_back(new MapLayer(map,i));
     }
 
-	// MapLayer layerZero(map, 0);
-	// MapLayer layerOne(map, 1);
-	// MapLayer layerTwo(map, 2);
-	// MapLayer layer3(map, 3);
-	// MapLayer layer4(map, 4);
-	// MapLayer layer5(map, 5setOrigin
-
     while (window.isOpen())
     {	
         // check all the window's events that were triggered since the last iteration of the loop
@@ -243,9 +245,9 @@ int main()
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))
 			{
-				input = sf::Vector2f({5,0});
+				input = sf::Vector2f(5,0);
 			    // left key is pressed: move our character
-			    if (is_perpendicular(movement,input)){
+			    if (!is_parallel(movement,input)){
 			    	movement += input;
 			    }
 			    p.turnto(sf::Vector2f(5,0));
@@ -254,7 +256,7 @@ int main()
 			{
 			    // left key is pressed: move our character
 			    input = sf::Vector2f(-5, 0);
-			    if (is_perpendicular(movement,input)){
+			    if (!is_parallel(movement,input)){
 			    	movement += input;
 			    }
 			    p.turnto(sf::Vector2f(-5,0));
@@ -263,7 +265,7 @@ int main()
 			{
 			    // left key is pressed: move our character
 			    input = sf::Vector2f(0, 5);
-			    if (is_perpendicular(movement,input)){
+			    if (!is_parallel(movement,input)){
 			    	movement += input;
 			    }
 				p.turnto(sf::Vector2f(0,5));
@@ -272,7 +274,7 @@ int main()
 			{
 			    // left key is pressed: move our character
 			    input = sf::Vector2f(0, -5);
-				if (is_perpendicular(movement,input)){
+				if (!is_parallel(movement,input)){
 			    	movement += input;
 			    }
 			    p.turnto(sf::Vector2f(0,-5));
@@ -287,6 +289,7 @@ int main()
 
 	    }
         p.move(normalize(movement,2000*time.asSeconds()));
+        // p.turnto(movement);
   //       sf::Vector2f z_pos = z.getPosition();
   //       sf::FloatRect prect(z_pos.x-20,z_pos.y-20,z_pos.x+40,z_pos.y+20);
         for(int i=0;i<bullets.size();i++){
@@ -334,7 +337,9 @@ int main()
 
 	    for( int i=0;i<n;i++){
 		    // std::cout << "Got here too";
-	    	window.draw(*(layers[i]));
+		    if(is_background_layer(i)){
+	    		window.draw(*(layers[i]));
+		    }
 	    }
 		for(int i=0;i<bullets.size();i++){
 			window.draw(*(bullets[i]));
@@ -346,6 +351,13 @@ int main()
 		// window.draw(z);
 	    // if(draw_sword)
 	    // 	window.draw(sword);
+
+	    for( int i=0;i<n;i++){
+		    // std::cout << "Got here too";
+		    if(!is_background_layer(i)){
+	    		window.draw(*(layers[i]));
+		    }
+	    }
 
 	    clock.restart();
 	    window.display();
