@@ -57,10 +57,24 @@ public:
 
 std::vector<Updatable*> Updatable::updatables;
 
+class Bullet;
+
+class Collidable{
+public:
+	static std::vector<Collidable*> all;
+	virtual bool is_colliding(const sf::FloatRect &b) = 0;
+	virtual void get_hit(const Bullet &b)=0;
+	Collidable(){
+		all.push_back(this);
+	}
+};
+std::vector<Collidable*> Collidable::all;
+
 class Bullet:public sf::CircleShape, public Updatable{
 
 
 public:
+	bool alive = false;
 	sf::Vector2f direction;
 	Bullet(sf::Vector2f p,sf::Vector2f d):sf::CircleShape(2){
 		direction = normalize(d,10);
@@ -73,9 +87,21 @@ public:
 	}
 	void update(){
 		moveForward();
+		for(int i=0 ; i < Collidable::all.size() ; i++){
+			if(Collidable::all[i]->is_colliding(getGlobalBounds())){
+				Collidable::all[i]->get_hit(*this);
+			}
+		}
+	}
+
+	void kill(){
+		setPosition(-1000,-1000);
+		direction = sf::Vector2f(0,0);
+		alive = false;
 	}
 
 };
+
 
 std::vector<Bullet*> bullets;
 
@@ -140,6 +166,7 @@ class Player: public sf::Drawable, public sf::Transformable,public Updatable {
        AnimatedSprite* body;
        AnimatedSprite* feet;
        sf::Vector2f direction;
+       float lastShotFiredAt = 0;
 
        int health = 100;
 
@@ -162,7 +189,11 @@ class Player: public sf::Drawable, public sf::Transformable,public Updatable {
 	}
 
     void shoot(){
-    	bullets.push_back(new Bullet(getTransform().transformPoint(sf::Vector2f(292,150)),direction));
+    	float current_time = globalClock.getElapsedTime().asSeconds(); 
+    	if(current_time - lastShotFiredAt > 1.f){
+	    	bullets.push_back(new Bullet(getTransform().transformPoint(sf::Vector2f(292,150)),direction));
+	    	lastShotFiredAt = current_time;
+    	}
     }	
 
     void update(){
@@ -208,11 +239,16 @@ AnimationTextures Player::body_textures("Top_Down_Survivor/rifle/move/survivor-m
 AnimationTextures Player::feet_textures("Top_Down_Survivor/feet/run/survivor-run_",0,19);
 Player p;
 
-class Zombie:public AnimatedSprite,Updatable{
+enum zombie_state{
+	Attacking, Moving
+};
+
+class Zombie:public AnimatedSprite,Updatable,Collidable{
 
 public:
 	static AnimationTextures zombie_textures;
 	static AnimationTextures attack_textures;
+	static AnimationTextures idle_textures;
 	static std::vector<Zombie*> zombies;
 	sf::Vector2f direction;
 	sf::Vector2f target;
@@ -222,6 +258,7 @@ public:
 	bool random_chosen = false;
 	int health = 100;
 	float lastupdate = 0;
+	zombie_state state = Moving;
 
 	Zombie():AnimatedSprite(zombie_textures){
 		target = sf::Vector2f( (rand() % 5 ) * 10 , (rand() % 5 ) * 10 );
@@ -236,6 +273,9 @@ public:
 	void turnto(sf::Vector2f d){
 		direction = d;
 		setRotation( std::atan2(d.y,d.x) * (180.0/3.141592653589793238463) );
+	}
+	bool is_colliding(const sf::FloatRect &b){
+		return b.intersects(getGlobalBounds());
 	}
 
 	bool is_colliding(const Zombie &s){
@@ -294,15 +334,15 @@ public:
 		// }
 
 		sf::Vector2f movement(0,0);
-		if(magnitude(distance_from_player) <= 50 && !attacking){
+		if(magnitude(distance_from_player) <= 50 && ! (state == Attacking)){
 			AnimatedSprite::setTextures(attack_textures);
-			attacking = true;
+			state = Attacking;
 		}
-		else if(magnitude(distance_from_player) > 50 && attacking){
+		else if(magnitude(distance_from_player) > 50 && (state == Attacking)){
 			AnimatedSprite::setTextures(zombie_textures);
-			attacking = false;
+			state = Attacking;
 		}
-		if(attacking){
+		if(state == Attacking){
 			if(AnimatedSprite::current_texture == 8){
 				p.health -= 1;
 			}
@@ -336,6 +376,14 @@ public:
 			lastupdate = globalClock.getElapsedTime().asSeconds();
 		}
 	}
+	void get_hit(const Bullet &b){
+		health -= 25;
+		std::cout << "Zombie was hit" << std::endl;
+		if(health <= 0 ){
+			setPosition(0,0);
+			health = 100;
+		}
+	}
 };
 
 bool is_background_layer(int n){
@@ -349,6 +397,7 @@ bool is_background_layer(int n){
 }
 AnimationTextures Zombie::zombie_textures("export/skeleton-move_",0,16);
 AnimationTextures Zombie::attack_textures("export/skeleton-attack_",0,8);
+AnimationTextures Zombie::idle_textures("export/skeleton-idle_",0,16);
 
 std::vector<Zombie*> Zombie::zombies;
 
@@ -494,31 +543,6 @@ int main()
 
 		mousePos = sf::Mouse::getPosition(window) ;
         p.turnto( sf::Vector2f(mousePos.x,mousePos.y) - sf::Vector2f(400,300));
-  //       sf::Vector2f z_pos = z.getPosition();
-  //       sf::FloatRect prect(z_pos.x-20,z_pos.y-20,z_pos.x+40,z_pos.y+20);
-        for(int i=0;i<bullets.size();i++){
-			bullets[i]->moveForward();
-			for(int j=0;j<Zombie::zombies.size();j++){
-				if((*bullets[i]).getGlobalBounds().intersects(Zombie::zombies[j]->getGlobalBounds())){
-					Zombie::zombies[j]->health -= 25;
-					bullets[i]->direction = sf::Vector2f(0,0);
-					bullets[i]->setPosition( sf::Vector2f(-100,-100) );
-					std::cout << "Zombie was hit" << std::endl;
-				}
-			}
-		}
-
-		// for(int i = 0 ; i<Zombie::zombies.size();i++){			
-		// 	Zombie *z = Zombie::zombies[i];
-		// 	z->update(p.getPosition() - z->getPosition(),timeElapsed.asSeconds());
-		// }
-
-		// // if( timeElapsed.asSeconds() > 0.05f ){
-		// 	// for(int i = 0 ; i<Zombie::zombies.size();i++)
-		// 	// 	Zombie::zombies[i]->update();
-		// 	p.update();
-		// 	globalClock.restart();
-		// // }
 
 		for(int i = 0;i < Updatable::updatables.size() ; i++){
 			Updatable::updatables[i]->update();
