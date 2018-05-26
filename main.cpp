@@ -157,14 +157,46 @@ public:
 	}
 };
 
+class StatefulAnimatedSprite:public sf::AnimatedSprite{
+public:
+	std::vector<AnimationTextures*> states;
+	int current_state = 0;
+	AnimatedSprite(const std::vector<AnimationTextures> &a):AnimatedSprite(*a[0]){
+		if (states.size() > 0 && states[current_state]->textures.size() >0) {
+			setTextures((*states[0]->textures[0]));
+		}
+	}
+
+	void change_state(int i){
+		if(!current_state == i){
+			current_state = i;
+			current_texture = 0;
+		}
+	}
+	void virtual update(){
+		if(states[current_state]->textures.size() != 0){	
+			current_texture = (current_texture+1) % states[current_state]->textures.size();
+			setTexture(*(states[current_state]->textures[current_texture]));
+		}
+	}	
+};
+
+enum body_state
+{
+	idle,moving,shooting
+};
+
 class Player: public sf::Drawable, public sf::Transformable,public Updatable {
  public:
  
        static AnimationTextures body_textures;
+       static AnimationTextures idle_body_textures;
        static AnimationTextures feet_textures;
+       static AnimationTextures idle_feet_textures;
         
        AnimatedSprite* body;
        AnimatedSprite* feet;
+       body_state bstate = idle;
        sf::Vector2f direction;
        float lastShotFiredAt = 0;
 
