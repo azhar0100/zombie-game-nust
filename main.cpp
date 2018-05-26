@@ -84,14 +84,14 @@ public:
 	    for(int i=begin;i<=end;i++){
 	    	sf::Texture* t = new sf::Texture();
 	    	textures.push_back(t);
-	    	if(!textures.back()->loadFromFile(texture_path_prefix + std::to_string(i) + ".png")){
+	    	if(! (textures.back()->loadFromFile(texture_path_prefix + std::to_string(i) + ".png")) ){
 				std::cout << "Failed at " << i << std::endl;
 			}
 		}
 	}			
 };
 
-class AnimatedSprite: public sf::Sprite,public Updatable{
+class AnimatedSprite: public sf::Sprite{
 public:
 
 	std::vector<sf::Texture*> textures;
@@ -120,9 +120,11 @@ public:
 		setTextures(t.textures);
 	}
 
-	void update(){
-		current_texture = (current_texture+1) % textures.size();
-		setTexture(*(textures[current_texture]));
+	void virtual update(){
+		if(textures.size() != 0){	
+			current_texture = (current_texture+1) % textures.size();
+			setTexture(*(textures[current_texture]));
+		}
 	}
 };
 
@@ -135,6 +137,8 @@ class Player: public sf::Drawable, public sf::Transformable,public Updatable {
        AnimatedSprite* body;
        AnimatedSprite* feet;
        sf::Vector2f direction;
+
+       int health = 100;
 
 
 
@@ -197,20 +201,28 @@ private:
 
 };
 
+AnimationTextures Player::body_textures("Top_Down_Survivor/rifle/move/survivor-move_rifle_",0,19);
+AnimationTextures Player::feet_textures("Top_Down_Survivor/feet/run/survivor-run_",0,19);
 Player p;
 
-class Zombie:public AnimatedSprite{
+class Zombie:public AnimatedSprite,Updatable{
+
 public:
 	static AnimationTextures zombie_textures;
 	static AnimationTextures attack_textures;
 	static std::vector<Zombie*> zombies;
 	sf::Vector2f direction;
+	sf::Vector2f target;
+	float speed;
 	int pos_in_vector;
 	bool attacking = false;
 	bool random_chosen = false;
 	int health = 100;
+	float lastupdate = 0;
 
-	Zombie():AnimatedSprite(zombie_textures.textures){
+	Zombie():AnimatedSprite(zombie_textures){
+		target = sf::Vector2f( (rand() % 5 ) * 10 , (rand() % 5 ) * 10 );
+		speed = 1 + 0.1f * ( rand() % 5 - 2);
 		direction = sf::Vector2f(10.f,0);
 		setOrigin(86,129);
 		setScale(1.0/4,1.0/4);
@@ -225,13 +237,22 @@ public:
 
 	bool is_colliding(const Zombie &s){
 		// sf::FloatRect bodyBounds = getTransform().transformRect(body->getGlobalBounds());
-
-		bool cond = getGlobalBounds().intersects(s.getGlobalBounds());
+		// sf::Transform t;
+		// t.scale(sf::Vector2f(0.1,0.1),getOrigin());
+		// t.combine(getTransform());
 		// if(cond){
-		// 	std::cout << "Body at " << bodyBounds.left << " , " << bodyBounds.top << " , " << bodyBounds.width << " , " << bodyBounds.height << std::endl; 
+		const auto &z1 = getGlobalBounds();
+		const auto &z2 = s.getGlobalBounds();
+		
+		bool cond = z1.intersects(z2);
+		if(cond){
+			std::cout << "Z1 at " << z1.left << " , " << z1.top << " , " << z1.width << " , " << z1.height << std::endl; 
+			std::cout << "Z2 at " << z2.left << " , " << z2.top << " , " << z2.width << " , " << z2.height << std::endl; 
+		}
 		// 	std::cout << "Rect at " << sBounds.left << " , " << sBounds.top << " , " << sBounds.width << " , " << sBounds.height << std::endl; 
 		// 	// std::cout << "rect at " << sBounds.left << " , " << sBounds.top << std::endl; 
 		// }
+		// cond = false;
 		return cond;
 	}
 
@@ -247,21 +268,23 @@ public:
 
 
 	void update(){
-		sf::Vector2f distance_from_player = p.getPosition() - getPosition();
+		sf::Vector2f distance_from_player = p.getPosition() + target - getPosition();
 		sf::Vector2f del(0,0); 
+		del = normalize(distance_from_player);
 		bool too_close = false;
 		sf::Vector2f movingAwayCoeff(0,0);
 		for(int i = 0; i < zombies.size(); i++ ){
 			sf::Vector2f distance_from_this_other_zombie = getPosition() - zombies[i]->getPosition(); 
-			if( magnitude(distance_from_this_other_zombie) < 10 && i != pos_in_vector ){
-				movingAwayCoeff +=  normalize(distance_from_this_other_zombie,-0.5);
+			if( magnitude(distance_from_this_other_zombie) < 100 && i != pos_in_vector ){
+				movingAwayCoeff +=  normalize(distance_from_this_other_zombie,2);
 			}
 			// if( magnitude(distance_from_this_other_zombie) < 500 && zombies[i] != this ){
 
 			// }
 		}
+		movingAwayCoeff = normalize(movingAwayCoeff);
 
-		del += normalize(movingAwayCoeff);
+		// del += normalize(movingAwayCoeff);
 		std::cout << "movingAwayCoeff :" << movingAwayCoeff.x << "  " << movingAwayCoeff.y << std::endl;
 		// if(too_close){
 
@@ -276,32 +299,39 @@ public:
 			AnimatedSprite::setTextures(zombie_textures);
 			attacking = false;
 		}
-
-		if( magnitude(distance_from_player) <= 500 ){
-			movement = normalize(normalize(distance_from_player) + normalize(del));
-			turnto(movement);
-			random_chosen = false;
-		}
-		else if(random_chosen){
-			movement = normalize(normalize(direction) + normalize(movingAwayCoeff));
-		}
-		else{				
-			turnto(sf::Vector2f(rand() % 4 - 2,rand() % 4 - 2));
-			random_chosen = true;
-		}
-		move(movement);
-
-		for(int i = 0; i < zombies.size(); i++ ){
-			if( is_colliding(*zombies[i]) && i != pos_in_vector ){
-				move(normalize(movement,-1));				
+		if(attacking){
+			if(AnimatedSprite::current_texture == 8){
+				p.health -= 1;
 			}
 		}
+		else{	
 
-		// if(seconds_since_last_update > 0.05f){
-			update();
+			if( magnitude(distance_from_player) <= 500 ){
+				// movement = normalize(normalize(distance_from_player) + normalize(del) + normalize(movingAwayCoeff));
+				movement = normalize(del + normalize(movingAwayCoeff));
+				random_chosen = false;
+			}
+			else if(random_chosen){
+				movement = normalize(normalize(direction) + normalize(movingAwayCoeff));
+			}
+			else{				
+				turnto(sf::Vector2f(rand() % 4 - 2,rand() % 4 - 2));
+				random_chosen = true;
+			}
+			turnto(del);
+			move(normalize(movement,speed));
+		}
+
+		// for(int i = 0; i < zombies.size(); i++ ){
+		// 	if( is_colliding(*zombies[i]) && i != pos_in_vector ){
+		// 		move(normalize(movement,-1));				
+		// 	}
 		// }
 
-
+		if(globalClock.getElapsedTime().asSeconds() - lastupdate > 0.1f){
+			AnimatedSprite::update();
+			lastupdate = globalClock.getElapsedTime().asSeconds();
+		}
 	}
 };
 
@@ -316,8 +346,6 @@ bool is_background_layer(int n){
 }
 AnimationTextures Zombie::zombie_textures("export/skeleton-move_",0,16);
 AnimationTextures Zombie::attack_textures("export/skeleton-attack_",0,8);
-AnimationTextures Player::Player::body_textures("Top_Down_Survivor/rifle/move/survivor-move_rifle_",0,19);
-AnimationTextures Player::feet_textures("Top_Down_Survivor/feet/run/survivor-run_",0,19);
 
 std::vector<Zombie*> Zombie::zombies;
 
@@ -340,7 +368,8 @@ int main()
     sf::Time time;
     sf::Time timeElapsed;
     std::vector<sf::RectangleShape*> collision_tiles;
-
+    sf::RectangleShape health(sf::Vector2f(100,10));
+    health.setPosition(0,0);
     // sf::Sprite zombie;
     // zombie.setTexture(zombie_textures[0]);
     // zombie.setOrigin(86,129);
@@ -400,66 +429,49 @@ int main()
             // "close requested" event: we close the window
             if (event.type == sf::Event::Closed)
                 window.close();
-
- 				
-		 //        if(btn_quit.IsIn(event.MouseMoveEvent.x, event.MouseMoveEvent.x){
-		 //            btn_quit.RenderImg(window,"button_on.png");
-		 //        } else {
-		 //            btn_quit.RenderImg(window,"button.png");
-		 //        }
-			// }
-   //      	}	
-
-
-			// if (event.type == sf::Event::TextEntered)
-
-			// if (event.type == sf::Event::MouseMoved){
-			// 	mousePos = sf::Mouse::getPosition(window) ;
-			// }
-
 	    }
-			if(sf::Keyboard::isKeyPressed(sf::Keyboard::X))
-			{
-					p.shoot();
-					std::cout << "ASCII character typed: " << static_cast<char>(event.text.unicode) << std::endl;
-			}
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))
-			{
-				input = sf::Vector2f(5,0);
-			    // left key is pressed: move our character
-			    if (!is_parallel(movement,input)){
-			    	movement += input;
-			    }
-			    // p.turnto(sf::Vector2f(5,0));
-			}
-			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
-			{
-			    // left key is pressed: move our character
-			    input = sf::Vector2f(-5, 0);
-			    if (!is_parallel(movement,input)){
-			    	movement += input;
-			    }
-			    // p.turnto(sf::Vector2f(-5,0));
-			}
-			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))
-			{
-			    // left key is pressed: move our character
-			    input = sf::Vector2f(0, 5);
-			    if (!is_parallel(movement,input)){
-			    	movement += input;
-			    }
-				// p.turnto(sf::Vector2f(0,5));
-			}
-			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))
-			{
-			    // left key is pressed: move our character
-			    input = sf::Vector2f(0, -5);
-				if (!is_parallel(movement,input)){
-			    	movement += input;
-			    }
-			    // p.turnto(sf::Vector2f(0,-5));
-			}
-			
+		if(sf::Keyboard::isKeyPressed(sf::Keyboard::X))
+		{
+				p.shoot();
+				std::cout << "ASCII character typed: " << static_cast<char>(event.text.unicode) << std::endl;
+		}
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))
+		{
+			input = sf::Vector2f(5,0);
+		    // left key is pressed: move our character
+		    if (!is_parallel(movement,input)){
+		    	movement += input;
+		    }
+		    // p.turnto(sf::Vector2f(5,0));
+		}
+		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
+		{
+		    // left key is pressed: move our character
+		    input = sf::Vector2f(-5, 0);
+		    if (!is_parallel(movement,input)){
+		    	movement += input;
+		    }
+		    // p.turnto(sf::Vector2f(-5,0));
+		}
+		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))
+		{
+		    // left key is pressed: move our character
+		    input = sf::Vector2f(0, 5);
+		    if (!is_parallel(movement,input)){
+		    	movement += input;
+		    }
+			// p.turnto(sf::Vector2f(0,5));
+		}
+		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))
+		{
+		    // left key is pressed: move our character
+		    input = sf::Vector2f(0, -5);
+			if (!is_parallel(movement,input)){
+		    	movement += input;
+		    }
+		    // p.turnto(sf::Vector2f(0,-5));
+		}
+		
 
 	    // p_new_pos = p.getPosition() + normalize(movement,1000*time.asSeconds());
         // sf::Vector2f motion = normalize(movement,1000*time.asSeconds());
@@ -544,10 +556,15 @@ int main()
 		    window.draw(*collision_tiles[i]);
 	    }
 
+	    health.setSize(sf::Vector2f((p.health / 100.0) * 200,10.0));
+	    std::cout << "health is at : "<< p.health << std::endl;
+	    health.setPosition(window.mapPixelToCoords(sf::Vector2i(0,0)));
+	    window.draw(health);
+
 	    clock.restart();
 	    window.display();
+		std::cout << "size of updatables" << Updatable::updatables.size();
     }
-
 
     // window.draw();
 
