@@ -15,6 +15,7 @@
 
 
 
+
 bool is_perpendicular(const sf::Vector2f& a,const sf::Vector2f& b){
 	return a.x*b.x + a.y*b.y == 0;
 }
@@ -35,6 +36,12 @@ sf::Vector2f normalize(const sf::Vector2f& source,double magnitude=1)
     else
         return source;
 }
+
+// bool is_inside_rectangle(const sf::Vector2f& r,const sf::RectangleShape& s){
+// 	sf::Vector2f i = s.getPosition();
+// 	sf::Vector2f f = i + s.getSize();
+// 	return r.x > i.x && sma
+// }
 
 class Updatable{
        virtual void update() = 0;
@@ -59,7 +66,7 @@ public:
 
 std::vector<Bullet*> bullets;
 
-class AnimatedSprite: public sf::Sprite{
+class AnimatedSprite: public sf::Sprite,public Updatable{
 public:
 
 	std::vector<sf::Texture*> textures;
@@ -112,6 +119,20 @@ class Player: public sf::Drawable, public sf::Transformable,public Updatable {
     void update(){
 		feet->update();
 		body->update();
+	}
+
+	// template<class T>
+	bool is_colliding(const sf::RectangleShape &s){
+		sf::FloatRect bodyBounds = getTransform().transformRect(body->getGlobalBounds());
+		sf::FloatRect sBounds = s.getGlobalBounds();
+
+		bool cond = bodyBounds.intersects(sBounds);
+		if(cond){
+			std::cout << "Body at " << bodyBounds.left << " , " << bodyBounds.top << " , " << bodyBounds.width << " , " << bodyBounds.height << std::endl; 
+			std::cout << "Rect at " << sBounds.left << " , " << sBounds.top << " , " << sBounds.width << " , " << sBounds.height << std::endl; 
+			// std::cout << "rect at " << sBounds.left << " , " << sBounds.top << std::endl; 
+		}
+		return cond;
 	}
 
 private:
@@ -186,6 +207,7 @@ int main()
 	sf::Clock clock;
     sf::Time time;
     sf::Time timeElapsed;
+    std::vector<sf::RectangleShape*> collision_tiles;
 
     // sf::Vector2f movement;
     // sf::CircleShape player();
@@ -247,17 +269,34 @@ int main()
     	layers.push_back(new MapLayer(map,i));
     }
 
+	auto& mlayers = map.getLayers();
+	const auto& layer = *dynamic_cast<const tmx::TileLayer*>(mlayers[n-1].get());
+	const auto& tileIDs = layer.getTiles();
+	// cout << map.getTileCount().y << endl;
+	for(int i=0;i<=100;i++){
+		for(int j=0;j<=100;j++){
+			// std::cout << "collision at " << tile->getPosition().x << " , " << tile->getPosition().y;
+			if(tileIDs[ i*100 + j].ID == 5951 ){
+				sf::RectangleShape *tile = new sf::RectangleShape(sf::Vector2f(32,32));
+				tile->setPosition(32*j,32*i);
+				std::cout << "collision at " << tile->getPosition().x << " , " << tile->getPosition().y << std::endl;
+				collision_tiles.push_back(tile);
+			}			
+		}
+	}
+
     while (window.isOpen())
     {	
         // check all the window's events that were triggered since the last iteration of the loop
         sf::Event event;
         time = clock.getElapsedTime();
         timeElapsed = globalClock.getElapsedTime();
-        // std::cout << 1.0f/time.asSeconds() << std::endl;
+        std::cout << 1.0f/time.asSeconds() << std::endl;
 
         sf::Vector2f movement;
         sf::Vector2f input;
         sf::Vector2f direction;
+        sf::Vector2i mousePos;
         while (window.pollEvent(event))
         {
 
@@ -313,16 +352,33 @@ int main()
    //      	}	
 
 
-			if (event.type == sf::Event::TextEntered)
+			// if (event.type == sf::Event::TextEntered)
+			if(sf::Keyboard::isKeyPressed(sf::Keyboard::X))
 			{
 				if (event.text.unicode ==  'x')
 					p.shoot();
 					std::cout << "ASCII character typed: " << static_cast<char>(event.text.unicode) << std::endl;
 			}
 
+			if (event.type == sf::Event::MouseMoved){
+				mousePos = sf::Mouse::getPosition(window) ;
+			}
+
 	    }
-        p.move(normalize(movement,1000*time.asSeconds()));
-        sf::Vector2i mousePos = sf::Mouse::getPosition(window) ;
+	    // p_new_pos = p.getPosition() + normalize(movement,1000*time.asSeconds());
+        // sf::Vector2f motion = normalize(movement,1000*time.asSeconds());
+        p.move( normalize(movement,1000*time.asSeconds()) );
+        bool obstruct = false;
+        for(int i=0;i < collision_tiles.size();i++){
+        	if(p.is_colliding(*(collision_tiles[i])) ) 
+	    		obstruct = true;
+        }
+        if(obstruct){
+	    	p.move(normalize(movement,-1000*time.asSeconds()));
+	    	std::cout << "Player collided" << std::endl;
+	    	obstruct = false;
+        }
+
         p.turnto( sf::Vector2f(mousePos.x,mousePos.y) - sf::Vector2f(400,300));
   //       sf::Vector2f z_pos = z.getPosition();
   //       sf::FloatRect prect(z_pos.x-20,z_pos.y-20,z_pos.x+40,z_pos.y+20);
@@ -391,6 +447,11 @@ int main()
 		    if(!is_background_layer(i)){
 	    		window.draw(*(layers[i]));
 		    }
+	    }
+
+	    for( int i=0;i<collision_tiles.size();i++){
+		    // std::cout << "Got here too";
+		    window.draw(*collision_tiles[i]);
 	    }
 
 	    clock.restart();
