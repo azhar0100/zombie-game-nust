@@ -172,12 +172,12 @@ private:
 
 class Zombie:public AnimatedSprite{
 public:
-	static std::vector<sf::Texture*> zombie_textures;
+	static AnimationTextures zombie_textures;
 	sf::Vector2f direction;
 	bool random_chosen = false;
 	int health = 100;
 
-	Zombie():AnimatedSprite(zombie_textures){
+	Zombie():AnimatedSprite(zombie_textures.textures){
 		direction = sf::Vector2f(10.f,0);
 		setOrigin(86,129);
 		setScale(1.0/4,1.0/4);
@@ -198,7 +198,7 @@ bool is_background_layer(int n){
 	}
 	return false;
 }
-std::vector<sf::Texture*> Zombie::zombie_textures;
+AnimationTextures Zombie::zombie_textures("export/skeleton-move_",0,16);
 std::vector<sf::Texture*> Player::Player::body_textures;
 std::vector<sf::Texture*> Player::feet_textures;
 
@@ -249,15 +249,15 @@ int main()
 		}
 	}
 
-    std::cout << "Got here";
-    for(int i=0;i<=16;i++){
-	   	sf::Texture* t = new sf::Texture();
-    	Zombie::zombie_textures.push_back(t);
-    	if(!Zombie::zombie_textures[i]->loadFromFile("export/skeleton-move_" + std::to_string(i) + ".png")){
-			std::cout << "Failed at " << i << std::endl;
-		}
-    }
-    std::cout << "Got here";
+  //   std::cout << "Got here";
+  //   for(int i=0;i<=16;i++){
+	 //   	sf::Texture* t = new sf::Texture();
+  //   	Zombie::zombie_textures.push_back(t);
+  //   	if(!Zombie::zombie_textures[i]->loadFromFile("export/skeleton-move_" + std::to_string(i) + ".png")){
+		// 	std::cout << "Failed at " << i << std::endl;
+		// }
+  //   }
+  //   std::cout << "Got here";
     Player p;
     // sf::Sprite zombie;
     // zombie.setTexture(zombie_textures[0]);
