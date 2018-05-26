@@ -45,8 +45,17 @@ sf::Vector2f normalize(const sf::Vector2f& source,double magnitude=1)
 // }
 
 class Updatable{
-       virtual void update() = 0;
+public:
+	static std::vector<Updatable*> updatables;
+	virtual void update() = 0;
+
+	Updatable(){
+		updatables.push_back(this);
+	}
+
 };
+
+std::vector<Updatable*> Updatable::updatables;
 
 class Bullet:public sf::CircleShape{
 
@@ -238,10 +247,7 @@ public:
 
 
 	void update(){
-		AnimatedSprite::update();
-	}
-
-	void update(sf::Vector2f distance_from_player, float seconds_since_last_update){
+		sf::Vector2f distance_from_player = p.getPosition() - getPosition();
 		sf::Vector2f del(0,0); 
 		bool too_close = false;
 		sf::Vector2f movingAwayCoeff(0,0);
@@ -487,17 +493,21 @@ int main()
 			}
 		}
 
-		for(int i = 0 ; i<Zombie::zombies.size();i++){			
-			Zombie *z = Zombie::zombies[i];
-			z->update(p.getPosition() - z->getPosition(),timeElapsed.asSeconds());
-		}
-
-		// if( timeElapsed.asSeconds() > 0.05f ){
-			// for(int i = 0 ; i<Zombie::zombies.size();i++)
-			// 	Zombie::zombies[i]->update();
-			p.update();
-			globalClock.restart();
+		// for(int i = 0 ; i<Zombie::zombies.size();i++){			
+		// 	Zombie *z = Zombie::zombies[i];
+		// 	z->update(p.getPosition() - z->getPosition(),timeElapsed.asSeconds());
 		// }
+
+		// // if( timeElapsed.asSeconds() > 0.05f ){
+		// 	// for(int i = 0 ; i<Zombie::zombies.size();i++)
+		// 	// 	Zombie::zombies[i]->update();
+		// 	p.update();
+		// 	globalClock.restart();
+		// // }
+
+		for(int i = 0;i < Updatable::updatables.size() ; i++){
+			Updatable::updatables[i]->update();
+		}
 
 		view = sf::View(p.getPosition(),sf::Vector2f(800,600));
 		// view.zoom(0.8);
