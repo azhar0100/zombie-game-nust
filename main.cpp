@@ -203,6 +203,7 @@ int main()
 
     // run the program as long as the window is open
     window.setFramerateLimit(60);
+    window.setVerticalSyncEnabled(true);
     sf::Clock globalClock;
 	sf::Clock clock;
     sf::Time time;
@@ -304,6 +305,29 @@ int main()
             if (event.type == sf::Event::Closed)
                 window.close();
 
+ 				
+		 //        if(btn_quit.IsIn(event.MouseMoveEvent.x, event.MouseMoveEvent.x){
+		 //            btn_quit.RenderImg(window,"button_on.png");
+		 //        } else {
+		 //            btn_quit.RenderImg(window,"button.png");
+		 //        }
+			// }
+   //      	}	
+
+
+			// if (event.type == sf::Event::TextEntered)
+			if(sf::Keyboard::isKeyPressed(sf::Keyboard::X))
+			{
+				if (event.text.unicode ==  'x')
+					p.shoot();
+					std::cout << "ASCII character typed: " << static_cast<char>(event.text.unicode) << std::endl;
+			}
+
+			// if (event.type == sf::Event::MouseMoved){
+			// 	mousePos = sf::Mouse::getPosition(window) ;
+			// }
+
+	    }
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))
 			{
 				input = sf::Vector2f(5,0);
@@ -342,43 +366,23 @@ int main()
 			}
 			
 
- 				
-		 //        if(btn_quit.IsIn(event.MouseMoveEvent.x, event.MouseMoveEvent.x){
-		 //            btn_quit.RenderImg(window,"button_on.png");
-		 //        } else {
-		 //            btn_quit.RenderImg(window,"button.png");
-		 //        }
-			// }
-   //      	}	
-
-
-			// if (event.type == sf::Event::TextEntered)
-			if(sf::Keyboard::isKeyPressed(sf::Keyboard::X))
-			{
-				if (event.text.unicode ==  'x')
-					p.shoot();
-					std::cout << "ASCII character typed: " << static_cast<char>(event.text.unicode) << std::endl;
-			}
-
-			if (event.type == sf::Event::MouseMoved){
-				mousePos = sf::Mouse::getPosition(window) ;
-			}
-
-	    }
 	    // p_new_pos = p.getPosition() + normalize(movement,1000*time.asSeconds());
         // sf::Vector2f motion = normalize(movement,1000*time.asSeconds());
-        p.move( normalize(movement,1000*time.asSeconds()) );
+
+		float movementmagnitude = 500*time.asSeconds();
+        p.move( normalize(movement, movementmagnitude) );
         bool obstruct = false;
         for(int i=0;i < collision_tiles.size();i++){
         	if(p.is_colliding(*(collision_tiles[i])) ) 
 	    		obstruct = true;
         }
         if(obstruct){
-	    	p.move(normalize(movement,-1000*time.asSeconds()));
+	    	p.move(normalize(movement,-movementmagnitude));
 	    	std::cout << "Player collided" << std::endl;
 	    	obstruct = false;
         }
 
+		mousePos = sf::Mouse::getPosition(window) ;
         p.turnto( sf::Vector2f(mousePos.x,mousePos.y) - sf::Vector2f(400,300));
   //       sf::Vector2f z_pos = z.getPosition();
   //       sf::FloatRect prect(z_pos.x-20,z_pos.y-20,z_pos.x+40,z_pos.y+20);
