@@ -66,6 +66,21 @@ public:
 
 std::vector<Bullet*> bullets;
 
+class AnimationTextures{
+public:
+	std::vector<sf::Texture*> textures;
+
+	AnimationTextures(std::string texture_path_prefix ,int begin, int end){
+	    for(int i=begin;i<=end;i++){
+	    	sf::Texture* t = new sf::Texture();
+	    	textures.push_back(t);
+	    	if(!textures.back()->loadFromFile(texture_path_prefix + std::to_string(i) + ".png")){
+				std::cout << "Failed at " << i << std::endl;
+			}
+		}
+	}			
+};
+
 class AnimatedSprite: public sf::Sprite,public Updatable{
 public:
 
