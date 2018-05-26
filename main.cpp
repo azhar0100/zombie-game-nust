@@ -15,6 +15,7 @@
 
 
 
+sf::Clock globalClock;
 
 bool is_perpendicular(const sf::Vector2f& a,const sf::Vector2f& b){
 	return a.x*b.x + a.y*b.y == 0;
@@ -91,6 +92,23 @@ public:
 		if (textures.size() > 0) {
 			setTexture((*textures[0]));
 		}
+	}
+	AnimatedSprite(const AnimationTextures &t): textures(t.textures){
+		if (textures.size() > 0) {
+			setTexture((*textures[0]));
+		}
+	}
+
+	void setTextures(std::vector<sf::Texture*> t){
+		textures = t;
+		if (textures.size() > 0) {
+			setTexture((*textures[0]));
+		}
+		current_texture = 0;
+	}
+
+	void setTextures(const AnimationTextures &t){
+		setTextures(t.textures);
 	}
 
 	void update(){
@@ -170,12 +188,16 @@ private:
 
 };
 
+Player p;
+
 class Zombie:public AnimatedSprite{
 public:
 	static AnimationTextures zombie_textures;
+	static AnimationTextures attack_textures;
 	static std::vector<Zombie*> zombies;
 	sf::Vector2f direction;
 	int pos_in_vector;
+	bool attacking = false;
 	bool random_chosen = false;
 	int health = 100;
 
@@ -240,6 +262,14 @@ public:
 		// }
 
 		sf::Vector2f movement(0,0);
+		if(magnitude(distance_from_player) <= 50 && !attacking){
+			AnimatedSprite::setTextures(attack_textures);
+			attacking = true;
+		}
+		else if(magnitude(distance_from_player) > 50 && attacking){
+			AnimatedSprite::setTextures(zombie_textures);
+			attacking = false;
+		}
 
 		if( magnitude(distance_from_player) <= 500 ){
 			movement = normalize(normalize(distance_from_player) + normalize(del));
@@ -279,6 +309,7 @@ bool is_background_layer(int n){
 	return false;
 }
 AnimationTextures Zombie::zombie_textures("export/skeleton-move_",0,16);
+AnimationTextures Zombie::attack_textures("export/skeleton-attack_",0,8);
 AnimationTextures Player::Player::body_textures("Top_Down_Survivor/rifle/move/survivor-move_rifle_",0,19);
 AnimationTextures Player::feet_textures("Top_Down_Survivor/feet/run/survivor-run_",0,19);
 
@@ -299,13 +330,11 @@ int main()
     // run the program as long as the window is open
     window.setFramerateLimit(60);
     window.setVerticalSyncEnabled(true);
-    sf::Clock globalClock;
 	sf::Clock clock;
     sf::Time time;
     sf::Time timeElapsed;
     std::vector<sf::RectangleShape*> collision_tiles;
 
-    Player p;
     // sf::Sprite zombie;
     // zombie.setTexture(zombie_textures[0]);
     // zombie.setOrigin(86,129);
