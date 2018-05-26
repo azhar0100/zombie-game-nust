@@ -316,18 +316,17 @@ int main()
 
 
 			// if (event.type == sf::Event::TextEntered)
-			if(sf::Keyboard::isKeyPressed(sf::Keyboard::X))
-			{
-				if (event.text.unicode ==  'x')
-					p.shoot();
-					std::cout << "ASCII character typed: " << static_cast<char>(event.text.unicode) << std::endl;
-			}
 
 			// if (event.type == sf::Event::MouseMoved){
 			// 	mousePos = sf::Mouse::getPosition(window) ;
 			// }
 
 	    }
+			if(sf::Keyboard::isKeyPressed(sf::Keyboard::X))
+			{
+					p.shoot();
+					std::cout << "ASCII character typed: " << static_cast<char>(event.text.unicode) << std::endl;
+			}
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))
 			{
 				input = sf::Vector2f(5,0);
