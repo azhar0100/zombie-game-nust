@@ -173,7 +173,9 @@ private:
 class Zombie:public AnimatedSprite{
 public:
 	static AnimationTextures zombie_textures;
+	static std::vector<Zombie*> zombies;
 	sf::Vector2f direction;
+	int pos_in_vector;
 	bool random_chosen = false;
 	int health = 100;
 
@@ -181,11 +183,89 @@ public:
 		direction = sf::Vector2f(10.f,0);
 		setOrigin(86,129);
 		setScale(1.0/4,1.0/4);
+		zombies.push_back(this);
+		pos_in_vector = zombies.size() - 1;
 	}
 
 	void turnto(sf::Vector2f d){
 		direction = d;
 		setRotation( std::atan2(d.y,d.x) * (180.0/3.141592653589793238463) );
+	}
+
+	bool is_colliding(const Zombie &s){
+		// sf::FloatRect bodyBounds = getTransform().transformRect(body->getGlobalBounds());
+
+		bool cond = getGlobalBounds().intersects(s.getGlobalBounds());
+		// if(cond){
+		// 	std::cout << "Body at " << bodyBounds.left << " , " << bodyBounds.top << " , " << bodyBounds.width << " , " << bodyBounds.height << std::endl; 
+		// 	std::cout << "Rect at " << sBounds.left << " , " << sBounds.top << " , " << sBounds.width << " , " << sBounds.height << std::endl; 
+		// 	// std::cout << "rect at " << sBounds.left << " , " << sBounds.top << std::endl; 
+		// }
+		return cond;
+	}
+
+	// bool is_colliding_with_any_other_zombie(){
+	// 	for(int i = 0; i < zombies.size(); i++ ){
+	// 		sf::Vector2f distance_from_this_other_zombie = getPosition() - zombies[i]->getPosition(); 
+	// 		if( is_colliding(*zombies[i]) && zombies[i] != this ){
+	// 			return;
+	// 		}
+	// 	}
+
+	// }
+
+
+	void update(){
+		AnimatedSprite::update();
+	}
+
+	void update(sf::Vector2f distance_from_player, float seconds_since_last_update){
+		sf::Vector2f del(0,0); 
+		bool too_close = false;
+		sf::Vector2f movingAwayCoeff(0,0);
+		for(int i = 0; i < zombies.size(); i++ ){
+			sf::Vector2f distance_from_this_other_zombie = getPosition() - zombies[i]->getPosition(); 
+			if( magnitude(distance_from_this_other_zombie) < 10 && i != pos_in_vector ){
+				movingAwayCoeff +=  normalize(distance_from_this_other_zombie,-0.5);
+			}
+			// if( magnitude(distance_from_this_other_zombie) < 500 && zombies[i] != this ){
+
+			// }
+		}
+
+		del += normalize(movingAwayCoeff);
+		std::cout << "movingAwayCoeff :" << movingAwayCoeff.x << "  " << movingAwayCoeff.y << std::endl;
+		// if(too_close){
+
+		// }
+
+		sf::Vector2f movement(0,0);
+
+		if( magnitude(distance_from_player) <= 500 ){
+			movement = normalize(normalize(distance_from_player) + normalize(del));
+			turnto(movement);
+			random_chosen = false;
+		}
+		else if(random_chosen){
+			movement = normalize(normalize(direction) + normalize(movingAwayCoeff));
+		}
+		else{				
+			turnto(sf::Vector2f(rand() % 4 - 2,rand() % 4 - 2));
+			random_chosen = true;
+		}
+		move(movement);
+
+		for(int i = 0; i < zombies.size(); i++ ){
+			if( is_colliding(*zombies[i]) && i != pos_in_vector ){
+				move(normalize(movement,-1));				
+			}
+		}
+
+		// if(seconds_since_last_update > 0.05f){
+			update();
+		// }
+
+
 	}
 };
 
@@ -202,7 +282,7 @@ AnimationTextures Zombie::zombie_textures("export/skeleton-move_",0,16);
 AnimationTextures Player::Player::body_textures("Top_Down_Survivor/rifle/move/survivor-move_rifle_",0,19);
 AnimationTextures Player::feet_textures("Top_Down_Survivor/feet/run/survivor-run_",0,19);
 
-std::vector<Zombie*> zombies;
+std::vector<Zombie*> Zombie::zombies;
 
 
 int main()
@@ -225,51 +305,17 @@ int main()
     sf::Time timeElapsed;
     std::vector<sf::RectangleShape*> collision_tiles;
 
-    // sf::Vector2f movement;
-    // sf::CircleShape player();
-    // bool draw_sword = false;
-
-    // "Top_Down_Survivor/feet/run/survivor-run_0.png";
-
- //    for(int i=0;i<=19;i++){
- //    // "Top_Down_Survivor/rifle/move/survivor-move_rifle_0.png";
- //    	sf::Texture* t = new sf::Texture();
- //    	Player::body_textures.push_back(t);
- //    	if(!Player::Player::body_textures[i]->loadFromFile("Top_Down_Survivor/rifle/move/survivor-move_rifle_" + std::to_string(i) + ".png")){
-	// 		std::cout << "Failed at " << i << std::endl;
-	// 	}
-	// }
-
- //    for(int i=0;i<=19;i++){
- //    // "Top_Down_Survivor/rifle/move/survivor-move_rifle_0.png";
- //    	sf::Texture* t = new sf::Texture();
- //    	Player::feet_textures.push_back(t);
- //    	if(!Player::feet_textures.back()->loadFromFile("Top_Down_Survivor/feet/run/survivor-run_" + std::to_string(i) + ".png")){
-	// 		std::cout << "Failed at " << i << std::endl;
-	// 	}
-	// }
-
-  //   std::cout << "Got here";
-  //   for(int i=0;i<=16;i++){
-	 //   	sf::Texture* t = new sf::Texture();
-  //   	Zombie::zombie_textures.push_back(t);
-  //   	if(!Zombie::zombie_textures[i]->loadFromFile("export/skeleton-move_" + std::to_string(i) + ".png")){
-		// 	std::cout << "Failed at " << i << std::endl;
-		// }
-  //   }
-  //   std::cout << "Got here";
     Player p;
     // sf::Sprite zombie;
     // zombie.setTexture(zombie_textures[0]);
     // zombie.setOrigin(86,129);
     // zombie.setScale(1.0/4,1.0/4);
 
-    std::vector<Zombie*> zombies;
 
     for(int i=0;i<16;i++){
     	Zombie *z = new Zombie();
-    	z->setPosition(rand() % 512,rand() % 512);
-    	zombies.push_back(z);
+    	z->setPosition(rand() % 1024,rand() % 1024);
+    	// Zombie::zombies.push_back(z);
     }
     // sf::RectangleShape sword(sf::Vector2f({40,5}));
     // sword.setFillColor(sf::Color(255,0,0));
@@ -402,9 +448,9 @@ int main()
   //       sf::FloatRect prect(z_pos.x-20,z_pos.y-20,z_pos.x+40,z_pos.y+20);
         for(int i=0;i<bullets.size();i++){
 			bullets[i]->moveForward();
-			for(int j=0;j<zombies.size();j++){
-				if((*bullets[i]).getGlobalBounds().intersects(zombies[j]->getGlobalBounds())){
-					zombies[j]->health -= 25;
+			for(int j=0;j<Zombie::zombies.size();j++){
+				if((*bullets[i]).getGlobalBounds().intersects(Zombie::zombies[j]->getGlobalBounds())){
+					Zombie::zombies[j]->health -= 25;
 					bullets[i]->direction = sf::Vector2f(0,0);
 					bullets[i]->setPosition( sf::Vector2f(-100,-100) );
 					std::cout << "Zombie was hit" << std::endl;
@@ -412,31 +458,17 @@ int main()
 			}
 		}
 
-		for(int i = 0 ; i<zombies.size();i++){			
-			Zombie *z = zombies[i];
-
-			sf::Vector2f del = p.getPosition() - z->getPosition();
-			if( magnitude(del) <= 500 ){
-				z->move(normalize(del));
-				z->turnto(del);
-				z->random_chosen = false;
-			}
-			else if(z->random_chosen){
-				z->move(normalize(z->direction));
-			}
-			else{				
-				z->turnto(sf::Vector2f(rand() % 4 - 2,rand() % 4 - 2));
-				z->random_chosen = true;
-			}
-			
+		for(int i = 0 ; i<Zombie::zombies.size();i++){			
+			Zombie *z = Zombie::zombies[i];
+			z->update(p.getPosition() - z->getPosition(),timeElapsed.asSeconds());
 		}
 
-		if( timeElapsed.asSeconds() > 0.05f ){
-			for(int i = 0 ; i<zombies.size();i++)
-				zombies[i]->update();
+		// if( timeElapsed.asSeconds() > 0.05f ){
+			// for(int i = 0 ; i<Zombie::zombies.size();i++)
+			// 	Zombie::zombies[i]->update();
 			p.update();
 			globalClock.restart();
-		}
+		// }
 
 		view = sf::View(p.getPosition(),sf::Vector2f(800,600));
 		// view.zoom(0.8);
@@ -454,8 +486,8 @@ int main()
 			window.draw(*(bullets[i]));
 		}
 	    window.draw(p);
-	    for(int i = 0 ; i<zombies.size();i++){
-	    	window.draw(*zombies[i]);
+	    for(int i = 0 ; i<Zombie::zombies.size();i++){
+	    	window.draw(*Zombie::zombies[i]);
 		}
 		// window.draw(z);
 	    // if(draw_sword)
