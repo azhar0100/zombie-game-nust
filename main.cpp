@@ -57,7 +57,7 @@ public:
 
 std::vector<Updatable*> Updatable::updatables;
 
-class Bullet:public sf::CircleShape{
+class Bullet:public sf::CircleShape, public Updatable{
 
 
 public:
@@ -70,6 +70,9 @@ public:
 
 	void moveForward(){
 		move(direction);
+	}
+	void update(){
+		moveForward();
 	}
 
 };
