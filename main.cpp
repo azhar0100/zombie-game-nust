@@ -5,7 +5,7 @@
 #include <vector>
 #include "SFMLOrthogonalLayer.hpp"
 #include <tmxlite/Map.hpp>
-
+#include <SFML/Audio.hpp>
 // enum{
 // 	KEY_UP,KEY_DOWN,KEY_RIGHT,KEY_LEFT
 // }
@@ -13,7 +13,12 @@
 // 	return *std::min_element({90-angle,180-angle,270-angle,360-angle});
 // }
 
+/*
+Itterheim, Steffen. "Working with tilemaps." Learn iPhone and iPad cocos2d Game Development. Apress, Berkeley, CA, 2010. 211-233.
+Game, Competitive Dice. "The Walking Dead™." (2014).
+*/
 
+int score=0;
 
 sf::Clock globalClock;
 
@@ -69,41 +74,98 @@ public:
 	}
 };
 std::vector<Collidable*> Collidable::all;
+sf::Texture shiny_bullet;
 
-class Bullet:public sf::CircleShape, public Updatable{
+class Bullet:public sf::Sprite, public Updatable{
+
 
 
 public:
-	bool alive = false;
+	static std::vector<Bullet*> bullets;
+	static std::vector<Bullet*> dead_bullets;
+
+	bool alive = true;
 	sf::Vector2f direction;
-	Bullet(sf::Vector2f p,sf::Vector2f d):sf::CircleShape(2){
+	Bullet(sf::Vector2f p,sf::Vector2f d){
+		setTexture(shiny_bullet);
+		setTextureRect(sf::IntRect(63,186,30,10));
 		direction = normalize(d,10);
-		setPosition(p);
+		setOrigin(0,15);
+		setPosition((p+sf::Vector2f(0,10)));
+		turnto(direction);
 		// std::cout << "Bkwas" << std::endl;
+
+	}
+
+
+	void turnto(sf::Vector2f d){
+		direction = d;
+		// body->setRotation(std::atan2(d.y,d.x) * (180.0/3.141592653589793238463));
+		// feet->setRotation(std::atan2(d.y,d.x) * (180.0/3.141592653589793238463));
+		setRotation(std::atan2(d.y,d.x) * (180.0/3.141592653589793238463));
+
 	}
 
 	void moveForward(){
 		move(direction);
 	}
 	void update(){
+		if(!alive){
+			return;
+		}
 		moveForward();
+
+		if(getPosition().x < 0 || getPosition().y < 0 || getPosition().x > 4096 || getPosition().y > 4096 ){
+			kill();
+			return;
+		}
 		for(int i=0 ; i < Collidable::all.size() ; i++){
 			if(Collidable::all[i]->is_colliding(getGlobalBounds())){
 				Collidable::all[i]->get_hit(*this);
+				kill();
+				break;
 			}
 		}
+	}
+
+	static Bullet* spawn(sf::Vector2f p,sf::Vector2f d){
+		// for(int i=0 ; i < bullets.size() ; i++){
+		// 	if(!bullets[i]->alive){
+		// 		bullets[i]->direction = normalize(d,10);
+		// 		bullets[i]->setPosition(p);
+		// 		bullets[i]->alive = true;
+
+		// 		return bullets[i];
+		// 	}
+		// }
+
+		Bullet *b;
+
+		if(dead_bullets.size() > 0){
+			b = dead_bullets.back();
+			dead_bullets.pop_back();
+			return b;
+		}
+
+		b = new Bullet(p,d);
+		bullets.push_back(b);
+		return b;
 	}
 
 	void kill(){
 		setPosition(-1000,-1000);
 		direction = sf::Vector2f(0,0);
 		alive = false;
+		dead_bullets.push_back(this);
+		// delete this;
 	}
 
 };
 
 
-std::vector<Bullet*> bullets;
+std::vector<Bullet*> Bullet::bullets;
+std::vector<Bullet*> Bullet::dead_bullets;
+sf::Sound sound;
 
 class AnimationTextures{
 public:
@@ -157,18 +219,19 @@ public:
 	}
 };
 
-class StatefulAnimatedSprite:public sf::AnimatedSprite{
+class StatefulAnimatedSprite:public AnimatedSprite{
 public:
 	std::vector<AnimationTextures*> states;
 	int current_state = 0;
-	AnimatedSprite(const std::vector<AnimationTextures> &a):AnimatedSprite(*a[0]){
+	StatefulAnimatedSprite(const std::vector<AnimationTextures*> &a):AnimatedSprite(*a[0]){
+		states = a;
 		if (states.size() > 0 && states[current_state]->textures.size() >0) {
-			setTextures((*states[0]->textures[0]));
+			setTexture((*states[0]->textures[0]));
 		}
 	}
 
 	void change_state(int i){
-		if(!current_state == i){
+		if(! (current_state == i)){
 			current_state = i;
 			current_texture = 0;
 		}
@@ -181,24 +244,38 @@ public:
 	}	
 };
 
+
 enum body_state
 {
-	idle,moving,shooting
+	idle=0,
+	moving=1,
+	shooting=2
 };
 
+sf::Vector2f player_movement;
+std::vector<sf::FloatRect*> collision_tiles;
 class Player: public sf::Drawable, public sf::Transformable,public Updatable {
  public:
  
        static AnimationTextures body_textures;
+       static AnimationTextures flash_texture;
        static AnimationTextures idle_body_textures;
+       static AnimationTextures shooting_body_textures;
        static AnimationTextures feet_textures;
        static AnimationTextures idle_feet_textures;
         
-       AnimatedSprite* body;
-       AnimatedSprite* feet;
-       body_state bstate = idle;
+       StatefulAnimatedSprite* feet;
+       StatefulAnimatedSprite* body;
+       sf::Sprite flash;
+       bool show_flash = false;
+       body_state fstate = moving;
+       body_state bstate = moving;
+       
+       bool is_shooting = false;
        sf::Vector2f direction;
        float lastShotFiredAt = 0;
+       float lastMotionAt = 0;
+       float lastupdate = 0;
 
        int health = 100;
 
@@ -206,9 +283,23 @@ class Player: public sf::Drawable, public sf::Transformable,public Updatable {
 
 	Player(){
 		direction = sf::Vector2f(1,0);
-		body = new AnimatedSprite(body_textures.textures);
-		feet = new AnimatedSprite(feet_textures.textures);
+		std::vector<AnimationTextures*> feet_animations;
+		feet_animations.push_back(&idle_feet_textures);
+		feet_animations.push_back(&feet_textures);
+
+		std::vector<AnimationTextures*> body_animations;
+		body_animations.push_back(&idle_body_textures);
+		body_animations.push_back(&body_textures);
+		body_animations.push_back(&shooting_body_textures);
+		body = new StatefulAnimatedSprite(body_animations);
+		feet = new StatefulAnimatedSprite(feet_animations);
+		flash.setTexture(*flash_texture.textures[0]);
+		// flash.setScale(1.0/4,1.0/4);
 		setOrigin(95,120);
+		flash.setOrigin(23,122);
+		// flash.setPosition(getTransform().getInverse().transformPoint(0,0));
+		flash.setPosition(292,150);
+		flash.setScale(1.0/2,1.0/3);
 		setScale(1.0/4,1.0/4);
 	}
 
@@ -222,21 +313,81 @@ class Player: public sf::Drawable, public sf::Transformable,public Updatable {
 
     void shoot(){
     	float current_time = globalClock.getElapsedTime().asSeconds(); 
-    	if(current_time - lastShotFiredAt > 1.f){
-	    	bullets.push_back(new Bullet(getTransform().transformPoint(sf::Vector2f(292,150)),direction));
+    	// sound.play();
+    	if(current_time - lastShotFiredAt > 0.01f){
+	    	bstate = shooting;
+	    	is_shooting = true;
+	    	// Bullet::bullets.push_back(new Bullet(getTransform().transformPoint(sf::Vector2f(292,150)),direction));
+	    	Bullet::spawn(getTransform().transformPoint(sf::Vector2f(292,150)),direction);
 	    	lastShotFiredAt = current_time;
     	}
     }	
 
     void update(){
-		feet->update();
-		body->update();
+    	std::cout << "Player at "<< getPosition().x << " , " << getPosition().y; 
+    	float current_time = globalClock.getElapsedTime().asSeconds();
+    	move(player_movement);
+        bool obstruct = false;
+        for(int i=0;i < collision_tiles.size();i++){
+        	// if(is_colliding(*(collision_tiles[i])) ){	
+        	if(is_colliding(*(collision_tiles[i])) ){	
+	    		obstruct = true;
+		    	std::cout << "Player collided with " ;
+		    	std::cout << collision_tiles[i]->left << " ";
+		    	std::cout << collision_tiles[i]->top << " ";
+		    	std::cout << collision_tiles[i]->width << " ";
+		    	std::cout << collision_tiles[i]->height << " " << std::endl;
+        	} 
+        }
+        if(obstruct){
+	    	move(-player_movement);
+
+	    	obstruct = false;
+	    	// bstate = idle;
+        }
+        std::cout << "player is moving like" << magnitude(player_movement);
+    	show_flash = false;
+        if(is_shooting){
+        	show_flash = false;
+        	body->change_state(2);
+        	std::cout << "player shoots like" << body->current_state << std::endl;
+        	if(body->current_texture == 2){
+        		sound.play();
+	        	std::cout << "player stops shooting like" << std::endl;
+        		is_shooting=false;
+        		show_flash = true;
+        		// body->change_state(1);
+        	}
+        }
+        if(magnitude(player_movement) == 0){
+        	bstate = idle;
+        }
+        else{
+			bstate = moving;
+        }
+        if (bstate == idle){
+        	feet->change_state(idle);
+        	if(!is_shooting)
+        		body->change_state(idle);
+        }
+        else{
+        	feet->change_state(moving);
+        	if(!is_shooting)
+       			body->change_state(moving);
+        	lastMotionAt = current_time;
+        }
+        if(current_time - lastupdate > 0.01f){
+			feet->update();
+			body->update();
+			lastupdate = current_time;
+        }
 	}
 
 	// template<class T>
-	bool is_colliding(const sf::RectangleShape &s){
+	bool is_colliding(const sf::FloatRect &sBounds){
 		sf::FloatRect bodyBounds = getTransform().transformRect(body->getGlobalBounds());
-		sf::FloatRect sBounds = s.getGlobalBounds();
+		// sf::FloatRect sBounds = s.getGlobalBounds();
+		// sf::FloatRect &sBounds = s;
 
 		bool cond = bodyBounds.intersects(sBounds);
 		if(cond){
@@ -262,13 +413,23 @@ private:
         // target.draw(this,states);
         target.draw(*feet, states);
         target.draw(*body, states);
+        if(show_flash){
+        	target.draw(flash, states);
+        }
     }
 
 
 };
 
+
+
+AnimationTextures Player::flash_texture("Survivor Spine/images/flash",0,0);
 AnimationTextures Player::body_textures("Top_Down_Survivor/rifle/move/survivor-move_rifle_",0,19);
+AnimationTextures Player::idle_body_textures("Top_Down_Survivor/rifle/idle/survivor-idle_rifle_",0,19);
+AnimationTextures Player::shooting_body_textures("Top_Down_Survivor/rifle/shoot/survivor-shoot_rifle_",0,2);
+// AnimationTextures Player::body_textures("Top_Down_Survivor/rifle/move/survivor-move_rifle_",0,19);
 AnimationTextures Player::feet_textures("Top_Down_Survivor/feet/run/survivor-run_",0,19);
+AnimationTextures Player::idle_feet_textures("Top_Down_Survivor/feet/idle/survivor-idle_",0,0);
 Player p;
 
 enum zombie_state{
@@ -291,6 +452,8 @@ public:
 	int health = 100;
 	float lastupdate = 0;
 	zombie_state state = Moving;
+	bool alive = true;
+	int times_resurrected = 0;
 
 	Zombie():AnimatedSprite(zombie_textures){
 		target = sf::Vector2f( (rand() % 5 ) * 10 , (rand() % 5 ) * 10 );
@@ -330,6 +493,20 @@ public:
 		// cond = false;
 		return cond;
 	}
+	bool colliding(const sf::FloatRect &s){
+		// sf::FloatRect bodyBounds = getTransform().transformRect(body->getGlobalBounds());
+		sf::FloatRect bodyBounds = getGlobalBounds();
+		// sf::FloatRect sBounds = s.getGlobalBounds();
+		sf::FloatRect sBounds = s;
+
+		bool cond = bodyBounds.intersects(sBounds);
+		if(cond){
+			std::cout << "Body at " << bodyBounds.left << " , " << bodyBounds.top << " , " << bodyBounds.width << " , " << bodyBounds.height << std::endl; 
+			std::cout << "Rect at " << sBounds.left << " , " << sBounds.top << " , " << sBounds.width << " , " << sBounds.height << std::endl; 
+			// std::cout << "rect at " << sBounds.left << " , " << sBounds.top << std::endl; 
+		}
+		return cond;
+	}
 
 	// bool is_colliding_with_any_other_zombie(){
 	// 	for(int i = 0; i < zombies.size(); i++ ){
@@ -343,6 +520,22 @@ public:
 
 
 	void update(){
+		if(!alive){
+			if(globalClock.getElapsedTime().asSeconds() - lastupdate > 2.f){
+				alive = true;
+				int place_choice = rand() % 2;
+				if(place_choice == 0){
+					setPosition(974,877);//NBS
+				}
+				if(place_choice == 1){
+					setPosition(1845,501);//SEECS
+				}
+			}
+			return;
+		}(sf::Vector2f({40,5}));
+    // sword.setFillColor(sf::Color(255,0,0));
+
+
 		sf::Vector2f distance_from_player = p.getPosition() + target - getPosition();
 		sf::Vector2f del(0,0); 
 		del = normalize(distance_from_player);
@@ -372,7 +565,7 @@ public:
 		}
 		else if(magnitude(distance_from_player) > 50 && (state == Attacking)){
 			AnimatedSprite::setTextures(zombie_textures);
-			state = Attacking;
+			state = Moving;
 		}
 		if(state == Attacking){
 			if(AnimatedSprite::current_texture == 8){
@@ -397,6 +590,19 @@ public:
 			move(normalize(movement,speed));
 		}
 
+		bool obstruct = false;
+        for(int i=0;i < collision_tiles.size();i++){
+        	if(colliding(*(collision_tiles[i])) ){	
+	    		obstruct = true;
+        	} 
+        }
+        if(obstruct){
+	    	move(normalize(movement,-speed));
+	    	std::cout << "Zombie collided" << std::endl;
+	    	obstruct = false;
+	    	// bstate = idle;
+        }
+
 		// for(int i = 0; i < zombies.size(); i++ ){
 		// 	if( is_colliding(*zombies[i]) && i != pos_in_vector ){
 		// 		move(normalize(movement,-1));				
@@ -409,11 +615,25 @@ public:
 		}
 	}
 	void get_hit(const Bullet &b){
-		health -= 25;
+		health -= 20;
 		std::cout << "Zombie was hit" << std::endl;
 		if(health <= 0 ){
-			setPosition(0,0);
-			health = 100;
+			setPosition(-500,-500);
+			alive = false;
+			times_resurrected++;
+			health = 100*times_resurrected ;
+			score += health;
+			std::cout << "Score:" + std::to_string(score) << std::endl;
+		}
+	}
+
+	static bool spawn(sf::Vector2f pos){
+		for(int i=0;i<zombies.size();i++){
+			if(!zombies[i]->alive){
+				zombies[i]->alive = true;
+				// zombies[i]->health = 100;
+				zombies[i]->setPosition(pos);
+			}
 		}
 	}
 };
@@ -436,6 +656,14 @@ std::vector<Zombie*> Zombie::zombies;
 
 int main()
 {
+
+	sf::SoundBuffer buffer;
+	// load something into the sound buffer...
+	buffer.loadFromFile("M4A1_Single-Kibblesbob-8540445.wav");
+
+	sound.setBuffer(buffer);
+	// sound.play();
+	shiny_bullet.loadFromFile("M484BulletCollection1.png");
     std::cout << "Got here";
 	bool random_chosen=false;
 	srand(time(NULL));
@@ -447,22 +675,24 @@ int main()
 
     // run the program as long as the window is open
     window.setFramerateLimit(60);
-    window.setVerticalSyncEnabled(true);
+    // window.setVerticalSyncEnabled(true);
 	sf::Clock clock;
     sf::Time time;
     sf::Time timeElapsed;
-    std::vector<sf::RectangleShape*> collision_tiles;
     sf::RectangleShape health(sf::Vector2f(100,10));
     health.setPosition(0,0);
     // sf::Sprite zombie;
     // zombie.setTexture(zombie_textures[0]);
     // zombie.setOrigin(86,129);
     // zombie.setScale(1.0/4,1.0/4);
+    p.setPosition(64*32,33*32);
 
 
     for(int i=0;i<16;i++){
     	Zombie *z = new Zombie();
-    	z->setPosition(rand() % 1024,rand() % 1024);
+
+    	// z->setPosition(974,677); // For NBS
+    	z->setPosition(1845,501); //For seecs
     	// Zombie::zombies.push_back(z);
     }
     // sf::RectangleShape sword(sf::Vector2f({40,5}));
@@ -470,7 +700,9 @@ int main()
 
     int k=0;
 	tmx::Map map;
-    map.load("tiled/zombiegame1.tmx");
+    // map.load("tiled/zombiegame org.tmx");
+    // map.load("tiled/zombiegame1.tmx");
+    map.load("tiled/zorg_2.tmx");
 
     std::size_t n = map.getLayers().size();
     std::vector<MapLayer*> layers;
@@ -486,10 +718,10 @@ int main()
 	for(int i=0;i<=100;i++){
 		for(int j=0;j<=100;j++){
 			// std::cout << "collision at " << tile->getPosition().x << " , " << tile->getPosition().y;
-			if(tileIDs[ i*100 + j].ID == 5951 ){
-				sf::RectangleShape *tile = new sf::RectangleShape(sf::Vector2f(32,32));
-				tile->setPosition(32*j,32*i);
-				std::cout << "collision at " << tile->getPosition().x << " , " << tile->getPosition().y << std::endl;
+			if(tileIDs[ i*100 + j].ID == 9327 ){
+				sf::FloatRect *tile = new sf::FloatRect(sf::Vector2f(32*j,32*i),sf::Vector2f(32,32));
+				// tile->setPosition(32*j,32*i);
+				// std::cout << "collision at " << tile->getPosition().x << " , " << tile->getPosition().y << std::endl;
 				collision_tiles.push_back(tile);
 			}			
 		}
@@ -501,9 +733,10 @@ int main()
         sf::Event event;
         time = clock.getElapsedTime();
         timeElapsed = globalClock.getElapsedTime();
-        std::cout << 1.0f/time.asSeconds() << std::endl;
+        std::cout << "FPS at " <<1.0f/time.asSeconds() << std::endl;
 
-        sf::Vector2f movement;
+        sf::Vector2f movement(0,0);
+        player_movement = movement;
         sf::Vector2f input;
         sf::Vector2f direction;
         sf::Vector2i mousePos;
@@ -561,30 +794,24 @@ int main()
         // sf::Vector2f motion = normalize(movement,1000*time.asSeconds());
 
 		float movementmagnitude = 500*time.asSeconds();
-        p.move( normalize(movement, movementmagnitude) );
-        bool obstruct = false;
-        for(int i=0;i < collision_tiles.size();i++){
-        	if(p.is_colliding(*(collision_tiles[i])) ) 
-	    		obstruct = true;
-        }
-        if(obstruct){
-	    	p.move(normalize(movement,-movementmagnitude));
-	    	std::cout << "Player collided" << std::endl;
-	    	obstruct = false;
-        }
+
+        player_movement = normalize(movement, movementmagnitude);
+
 
 		mousePos = sf::Mouse::getPosition(window) ;
         p.turnto( sf::Vector2f(mousePos.x,mousePos.y) - sf::Vector2f(400,300));
 
 		for(int i = 0;i < Updatable::updatables.size() ; i++){
-			Updatable::updatables[i]->update();
+			if(Updatable::updatables[i] != NULL){
+				Updatable::updatables[i]->update();
+			}
 		}
 
 		view = sf::View(p.getPosition(),sf::Vector2f(800,600));
 		// view.zoom(0.8);
 		window.setView(view);
 
-	    window.clear(sf::Color());
+	    window.clear(sf::Color(100,255,100));
 
 	    for( int i=0;i<n;i++){
 		    // std::cout << "Got here too";
@@ -592,8 +819,13 @@ int main()
 	    		window.draw(*(layers[i]));
 		    }
 	    }
-		for(int i=0;i<bullets.size();i++){
-			window.draw(*(bullets[i]));
+	    if(Bullet::bullets.size() > 1000){
+	    	std::cout << "Clearing time;"<< std::endl;
+	    	Bullet::bullets.clear();
+	    	// Updatable::updatables.erase( std::remove(Updatable::updatables.begin(), Updatable::updatables.end(), NULL), Updatable::updatables.end() )
+	    }
+		for(int i=0;i<Bullet::bullets.size();i++){
+			window.draw(*(Bullet::bullets[i]));
 		}
 	    window.draw(p);
 	    for(int i = 0 ; i<Zombie::zombies.size();i++){
@@ -603,22 +835,27 @@ int main()
 	    // if(draw_sword)
 	    // 	window.draw(sword);
 
-	    for( int i=0;i<n;i++){
+	    for( int i=0;i<n-1;i++){
+	    // for( int i=0;i<n;i++){
 		    // std::cout << "Got here too";
 		    if(!is_background_layer(i)){
 	    		window.draw(*(layers[i]));
 		    }
 	    }
 
-	    for( int i=0;i<collision_tiles.size();i++){
-		    // std::cout << "Got here too";
-		    window.draw(*collision_tiles[i]);
-	    }
+	    // for( int i=0;i<collision_tiles.size();i++){
+		   //  // std::cout << "Got here too";
+		   //  window.draw(*collision_tiles[i]);
+	    // }
 
-	    health.setSize(sf::Vector2f((p.health / 100.0) * 200,10.0));
+	    health.setSize(sf::Vector2f((p.health / 100.0) * 800,10.0));
 	    std::cout << "health is at : "<< p.health << std::endl;
 	    health.setPosition(window.mapPixelToCoords(sf::Vector2i(0,0)));
 	    window.draw(health);
+
+	    if (p.health <= 0){
+	    	return 0;
+	    }
 
 	    clock.restart();
 	    window.display();
@@ -629,4 +866,3 @@ int main()
 
     return 0;
 }
-
